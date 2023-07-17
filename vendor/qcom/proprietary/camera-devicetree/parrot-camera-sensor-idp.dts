@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-parrot.h>
+#include <dt-bindings/clock/qcom,camcc-parrot.h>
+#include <dt-bindings/interconnect/qcom,parrot.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+#include "parrot-camera-sensor-idp.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. Parrot IDP";
+	compatible = "qcom,parrot";
+	qcom,msm-id = <537 0x10000>;
+	qcom,board-id = <34 0>, <34 1>, <34 2>, <34 3>, <34 4>,  <34 0x600>, <34 0x601>, <34 0x602>, <34 0x603>, <34 0x604>;
+};

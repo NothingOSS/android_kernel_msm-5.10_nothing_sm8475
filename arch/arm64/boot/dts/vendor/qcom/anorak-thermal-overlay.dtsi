@@ -1,0 +1,246 @@
+#include <dt-bindings/thermal/thermal_qti.h>
+
+&thermal_zones {
+	socd {
+		cooling-maps {
+			socd_apc1 {
+				trip = <&socd_trip>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+
+			socd_cdsp1 {
+				trip = <&socd_trip>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
+			socd_gpu0 {
+				trip = <&socd_trip>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8550b-bcl-lvl0 {
+		cooling-maps {
+			lbat_cpu_2_3 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu_2_3_pause 1 1>;
+			};
+
+			lbat_cdsp0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cdsp_sw 2 2>;
+			};
+
+			lbat_gpu0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm8550b-bcl-lvl1 {
+		cooling-maps {
+			lbat_cpu_4_5 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu_4_5_pause 1 1>;
+			};
+
+			lbat_cdsp1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
+			lbat_gpu1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8550b-bcl-lvl2 {
+		cooling-maps {
+			lbat_cdsp2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			lbat_gpu2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&msm_gpu 5 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	pmxr2230-bcl-lvl0 {
+		cooling-maps {
+			vph_cpu_2_3 {
+				trip = <&bcl_lvl0>;
+				cooling-device = <&cpu_2_3_pause 1 1>;
+			};
+
+			vph_cdsp0 {
+				trip = <&bcl_lvl0>;
+				cooling-device = <&cdsp_sw 2 2>;
+			};
+
+			vph_gpu0 {
+				trip = <&bcl_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pmxr2230-bcl-lvl1 {
+		cooling-maps {
+			vph_cpu_4_5 {
+				trip = <&bcl_lvl1>;
+				cooling-device = <&cpu_4_5_pause 1 1>;
+			};
+
+			vph_cdsp1 {
+				trip = <&bcl_lvl1>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
+			vph_gpu1 {
+				trip = <&bcl_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pmxr2230-bcl-lvl2 {
+		cooling-maps {
+			vph_cdsp2 {
+				trip = <&bcl_lvl2>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			vph_gpu2 {
+				trip = <&bcl_lvl2>;
+				cooling-device = <&msm_gpu 5 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	pm8550vs_c_tz {
+		cooling-maps {
+			pm8550vs_c_APC1 {
+				trip = <&pm8550vs_c_trip0>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+		};
+	};
+
+	pm8550vs_d_tz {
+		cooling-maps {
+			pm8550vs_d_cdsp {
+				trip = <&pm8550vs_d_trip0>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	pm8550vs_e_tz {
+		cooling-maps {
+			pm8550vs_e_gpu {
+				trip = <&pm8550vs_e_trip0>;
+				cooling-device = <&msm_gpu 5 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	sys-therm-1 {
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_config0>;
+				cooling-device = <&fancontroller 3 3>;
+			};
+		};
+	};
+
+	nspss-1 {
+		trips {
+			fan_nspss1_config0: fan-nspss1-config0 {
+				temperature = <80000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			fan_nspss1_config1: fan-nspss1-config1 {
+				temperature = <90000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_nspss1_config0>;
+				cooling-device = <&fancontroller 3 3>;
+			};
+
+			fan_cdev_1 {
+				trip = <&fan_nspss1_config1>;
+				cooling-device = <&fancontroller 4 4>;
+			};
+		};
+	};
+
+	gpuss-2 {
+		trips {
+			fan_gpuss2_config0: fan-gpuss0-config0 {
+				temperature = <70000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			fan_gpuss2_config1: fan-gpuss0-config1 {
+				temperature = <90000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_gpuss2_config0>;
+				cooling-device = <&fancontroller 3 3>;
+			};
+
+			fan_cdev_1 {
+				trip = <&fan_gpuss2_config0>;
+				cooling-device = <&fancontroller 4 4>;
+			};
+		};
+	};
+
+	cpu-1-1-0 {
+		trips {
+			fan_cpu110_config0: fan-cpu110-config0 {
+				temperature = <70000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			fan_cpu110_config1: fan-cpu110-config1 {
+				temperature = <90000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			fan_cdev_0 {
+				trip = <&fan_cpu110_config0>;
+				cooling-device = <&fancontroller 3 3>;
+			};
+
+			fan_cdev_1 {
+				trip = <&fan_cpu110_config1>;
+				cooling-device = <&fancontroller 4 4>;
+			};
+		};
+	};
+};

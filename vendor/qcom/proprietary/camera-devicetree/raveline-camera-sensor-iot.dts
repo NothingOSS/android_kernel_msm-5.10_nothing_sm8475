@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-ravelin.h>
+#include <dt-bindings/clock/qcom,camcc-ravelin.h>
+#include <dt-bindings/interconnect/qcom,ravelin.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+#include "raveline-camera-sensor-iot.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. Montague IDP";
+	compatible = "qcom,montague-idp", "qcom,montague", "qcom,idp";
+	qcom,msm-id = <581 0x10000>, <582 0x10000>;
+	qcom,board-id = <0x10022 0x4>, <0x10022 3>, <0x10022 0x5>;
+};
