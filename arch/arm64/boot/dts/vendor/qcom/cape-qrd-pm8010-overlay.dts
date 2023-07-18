@@ -3,6 +3,7 @@
 
 #include "cape-qrd.dtsi"
 #include "waipio-pm8010-spmi.dtsi"
+#include "cape-alk-common-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Cape QRD with PM8010";

@@ -38,6 +38,8 @@
 
 #include "nfc_common.h"
 
+static bool nfc_hw_exist = false;
+
 /**
  * i2c_disable_irq()
  *
@@ -278,6 +280,23 @@ static const struct file_operations nfc_i2c_dev_fops = {
 	.unlocked_ioctl = nfc_dev_ioctl,
 };
 
+static ssize_t nfc_state_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE,"%d\n", nfc_hw_exist);
+}
+
+static DEVICE_ATTR_RO(nfc_state);
+
+static struct attribute *nfc_i2c_attrs[] = {
+	&dev_attr_nfc_state.attr,
+	NULL,
+};
+
+static struct attribute_group nfc_i2c_attr_grp = {
+	.attrs = nfc_i2c_attrs,
+};
+
 int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int ret = 0;
@@ -287,6 +306,12 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct platform_gpio *nfc_gpio = &nfc_configs.gpio;
 
 	pr_debug("%s: enter\n", __func__);
+
+	ret = sysfs_create_group(&client->dev.kobj, &nfc_i2c_attr_grp);
+	if (ret) {
+		pr_err("%s : sysfs_create_group failed\n", __func__);
+		goto err;
+	}
 
 	//retrieve details of gpios from dt
 
@@ -390,6 +415,8 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		pr_err("nfc hw check failed ret %d\n", ret);
 		goto err_nfcc_hw_check;
 	}
+
+	nfc_hw_exist = true;
 
 	device_init_wakeup(&client->dev, true);
 	i2c_dev->irq_wake_up = false;

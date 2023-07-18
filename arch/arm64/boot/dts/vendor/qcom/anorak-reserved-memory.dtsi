@@ -79,11 +79,6 @@
 		reg = <0x0 0x81d00000 0x0 0x200000>;
 	};
 
-	global_sync_mem: global_sync_region@82600000 {
-		no-map;
-		reg = <0x0 0x82600000 0x0 0x100000>;
-	};
-
 	tz_stat_mem: tz_stat_region@82700000 {
 		no-map;
 		reg = <0x0 0x82700000 0x0 0x100000>;
@@ -182,11 +177,6 @@
 	tui_vm_mem: tui_vm_region@f3c00000 {
 		no-map;
 		reg = <0x0 0xf3c00000 0x0 0x4400000>;
-	};
-
-	oem_vm_mem: oem_vm_region@f8000000 {
-		no-map;
-		reg = <0x0 0xf8000000 0x0 0x5000000>;
 	};
 
 	tags_hyp_ext_mem: tags_hyp_ext_region@fd000000 {

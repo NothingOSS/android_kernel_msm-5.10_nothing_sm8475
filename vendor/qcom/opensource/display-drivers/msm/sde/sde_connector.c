@@ -21,8 +21,24 @@
 #include "sde_vm.h"
 #include <drm/drm_probe_helper.h>
 
+#include "sde_trace.h"
+
 #define BL_NODE_NAME_SIZE 32
 #define HDR10_PLUS_VSIF_TYPE_CODE      0x81
+
+int finger_hbm_flag = 0;
+
+#define PANEL_FEATURE_NODE_FLAG
+#ifdef PANEL_FEATURE_NODE_FLAG
+static struct kobject *k_obj = NULL;
+int panel_feature_node_exist = 0;
+int panel_hbm_flag = 0;
+struct sde_connector *panel_feature_sde_conn;
+#endif
+
+#define COMMAND_LENGTH_1_BYTE_SEND			44
+#define COMMAND_LENGTH_2_BYTE_SEND			49
+#define COMMAND_LENGTH_GET_VALUE			44
 
 /* Autorefresh will occur after FRAME_CNT frames. Large values are unlikely */
 #define AUTOREFRESH_MAX_FRAME_CNT 6
@@ -165,6 +181,15 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
 			display->panel->bl_config.brightness_max_level);
 
+	if (finger_hbm_flag) {
+		SDE_ERROR("update hbm brightness\n");
+		bl_lvl = display->panel->bl_config.bl_hbm_level;
+	}
+
+	if (panel_hbm_flag) {
+		bl_lvl = display->panel->bl_config.bl_hbm_level;
+	}
+
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
 
@@ -254,7 +279,8 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 	props.type = BACKLIGHT_RAW;
 	props.power = FB_BLANK_UNBLANK;
 	props.max_brightness = bl_config->brightness_max_level;
-	props.brightness = bl_config->brightness_max_level;
+	props.brightness = bl_config->brightness_max_level  * 4 / 10;
+
 	snprintf(bl_node_name, BL_NODE_NAME_SIZE, "panel%u-backlight",
 							display_count);
 	c_conn->bl_device = backlight_device_register(bl_node_name, dev->dev, c_conn,
@@ -282,6 +308,8 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 				    PTR_ERR(c_conn->cdev));
 		c_conn->cdev = NULL;
 	}
+	SDE_INFO("set panel_feature_sde_conn in sde_backlight_setup\n");
+	panel_feature_sde_conn = c_conn;
 done:
 	display_count++;
 
@@ -994,6 +1022,71 @@ static int _sde_connector_update_dirty_properties(
 	return 0;
 }
 
+static int _sde_connector_update_finger_hbm_status(
+				struct drm_connector *connector)
+{
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	struct dsi_display * display;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector->state);
+
+	display = (struct dsi_display *) c_conn->display;
+	if (!display || !display->panel) {
+		SDE_ERROR("Invalid params(s) dsi_display %pK, panel %pK\n",
+					display, ((display) ? display->panel : NULL));
+		return -EINVAL;
+	}
+
+	if ((!c_conn->fingerlayer_dirty) && (finger_hbm_flag == c_conn->finger_flag)) {
+		return 0;
+	}
+
+	if (display->panel->power_mode == SDE_MODE_DPMS_OFF) {
+		SDE_ERROR("panel in power off\n");
+		return 0;
+	}
+
+	SDE_ATRACE_BEGIN("_sde_connector_update_finger_hbm_statuss");
+	finger_hbm_flag = c_conn->finger_flag;
+	if (finger_hbm_flag) {
+		SDE_ERROR("open hbm");
+		if ((c_conn->lp_mode == SDE_MODE_DPMS_LP1) ||
+			(c_conn->lp_mode == SDE_MODE_DPMS_LP2)) {
+			mutex_lock(&c_conn->lock);
+			c_conn->ops.set_power(connector, SDE_MODE_DPMS_ON, display);
+			mutex_unlock(&c_conn->lock);
+			c_conn->last_panel_power_mode = SDE_MODE_DPMS_ON;
+		}
+		sde_backlight_device_update_status(c_conn->bl_device);
+		/*wait for VBLANK */
+		//sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
+	} else {
+		SDE_ERROR("close hbm");
+		sde_backlight_device_update_status(c_conn->bl_device);
+		/*wait for VBLANK */
+		//sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
+		if ((c_conn->lp_mode == SDE_MODE_DPMS_LP1) ||
+			(c_conn->lp_mode == SDE_MODE_DPMS_LP2)) {
+			mutex_lock(&c_conn->lock);
+			c_conn->ops.set_power(connector, c_conn->lp_mode, display);
+			mutex_unlock(&c_conn->lock);
+			c_conn->last_panel_power_mode = c_conn->lp_mode;
+		}
+	}
+
+	c_conn->fingerlayer_dirty = false;
+	SDE_ATRACE_END("_sde_connector_update_finger_hbm_statuss");
+	return 0;
+}
+
+
 struct sde_connector_dyn_hdr_metadata *sde_connector_get_dyn_hdr_meta(
 		struct drm_connector *connector)
 {
@@ -1041,6 +1134,13 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 	if (rc) {
 		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
 		goto end;
+	}
+
+	if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
+		rc = _sde_connector_update_finger_hbm_status(connector);
+		if (rc) {
+			SDE_ERROR("update hbm status failed\n");
+		}
 	}
 
 	if (!c_conn->ops.pre_kickoff)
@@ -1792,6 +1892,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			SDE_ERROR_CONN(c_conn, "dynamic bit clock set failed, rc: %d", rc);
 
 		break;
+	case CONNECTOR_PROP_FINGER_FLAG:
+		SDE_ERROR_CONN(c_conn, "set finger flag: %d\n", val);
+		if (c_conn->finger_flag != val) {
+			c_conn->finger_flag = val;
+			c_conn->fingerlayer_dirty = true;
+		}
 	default:
 		break;
 	}
@@ -2438,6 +2544,524 @@ static const struct file_operations conn_cmd_rx_fops = {
 	.write =        _sde_debugfs_conn_cmd_rx_write,
 };
 
+ssize_t nt_tx_cmd(struct sde_connector *c_conn, const char *buf, size_t count)
+{
+	struct sde_vm_ops *vm_ops;
+	struct sde_kms *sde_kms;
+	char *input, *token, *input_copy, *input_dup = NULL;
+	const char *delim = " ";
+	char buffer[MAX_CMD_PAYLOAD_SIZE] = {0};
+	int rc = 0, strtoint = 0;
+	u32 buf_size = 0;
+
+	sde_kms = _sde_connector_get_kms(&c_conn->base);
+	if (!sde_kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	if (!c_conn->ops.cmd_transfer) {
+		SDE_ERROR("no cmd transfer support for connector name %s\n",
+				c_conn->name);
+		return -EINVAL;
+	}
+
+	input = kzalloc(count + 1, GFP_KERNEL);
+	if (!input)
+		return -ENOMEM;
+
+	vm_ops = sde_vm_get_ops(sde_kms);
+	sde_vm_lock(sde_kms);
+	if (vm_ops && vm_ops->vm_owns_hw && !vm_ops->vm_owns_hw(sde_kms)) {
+		SDE_ERROR("op not supported due to HW unavailablity\n");
+		rc = -EOPNOTSUPP;
+		goto end;
+	}
+
+	strncpy(input, buf, count);
+	input[count] = '\0';
+
+	SDE_INFO("Command requested for transfer to panel: %s\n", input);
+
+	input_copy = kstrdup(input, GFP_KERNEL);
+	if (!input_copy) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	input_dup = input_copy;
+	token = strsep(&input_copy, delim);
+	while (token) {
+		rc = kstrtoint(token, 0, &strtoint);
+		if (rc) {
+			SDE_ERROR("input buffer conversion failed\n");
+			goto end1;
+		}
+
+		buffer[buf_size++] = (strtoint & 0xff);
+		if (buf_size >= MAX_CMD_PAYLOAD_SIZE) {
+			SDE_ERROR("buffer size exceeding the limit %d\n",
+					MAX_CMD_PAYLOAD_SIZE);
+			rc = -EFAULT;
+			goto end1;
+		}
+		token = strsep(&input_copy, delim);
+	}
+	SDE_DEBUG("command packet size in bytes: %u\n", buf_size);
+	if (!buf_size) {
+		rc = -EFAULT;
+		goto end1;
+	}
+
+	mutex_lock(&c_conn->lock);
+	rc = c_conn->ops.cmd_transfer(&c_conn->base, c_conn->display, buffer,
+			buf_size);
+	c_conn->last_cmd_tx_sts = !rc ? true : false;
+	mutex_unlock(&c_conn->lock);
+
+	rc = 0;
+end1:
+	kfree(input_dup);
+end:
+	sde_vm_unlock(sde_kms);
+	kfree(input);
+	return rc;
+
+}
+
+ssize_t nt_rx_cmd(struct sde_connector *c_conn, const char *buf, size_t count)
+{
+	char *input, *token, *input_copy, *input_dup = NULL;
+	const char *delim = " ";
+	unsigned char buffer[MAX_CMD_PAYLOAD_SIZE] = {0};
+	int rc = 0, strtoint = 0;
+	u32 buf_size = 0;
+
+	if (!c_conn->ops.cmd_receive) {
+		SDE_ERROR("no cmd receive support for connector name %s\n",
+				c_conn->name);
+		return -EINVAL;
+	}
+
+	memset(c_conn->cmd_rx_buf, 0x0, MAX_CMD_RECEIVE_SIZE);
+	c_conn->rx_len = 0;
+
+	input = kzalloc(count + 1, GFP_KERNEL);
+	if (!input)
+		return -ENOMEM;
+
+	strncpy(input, buf, count);
+	input[count] = '\0';
+
+	SDE_INFO("Command requested for rx from panel: %s\n", input);
+
+	input_copy = kstrdup(input, GFP_KERNEL);
+	if (!input_copy) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	input_dup = input_copy;
+	token = strsep(&input_copy, delim);
+	while (token) {
+		rc = kstrtoint(token, 0, &strtoint);
+		if (rc) {
+			SDE_ERROR("input buffer conversion failed\n");
+			goto end1;
+		}
+
+		buffer[buf_size++] = (strtoint & 0xff);
+		if (buf_size >= MAX_CMD_PAYLOAD_SIZE) {
+			SDE_ERROR("buffer size = %d exceeding the limit %d\n",
+					buf_size, MAX_CMD_PAYLOAD_SIZE);
+			rc = -EFAULT;
+			goto end1;
+		}
+		token = strsep(&input_copy, delim);
+	}
+
+	if (!buffer[0] || buffer[0] > MAX_CMD_RECEIVE_SIZE) {
+		SDE_ERROR("invalid rx length\n");
+		rc = -EFAULT;
+		goto end1;
+	}
+
+	SDE_DEBUG("command packet size in bytes: %u, rx len: %u\n",
+			buf_size, buffer[0]);
+	if (!buf_size) {
+		rc = -EFAULT;
+		goto end1;
+	}
+
+	mutex_lock(&c_conn->lock);
+	c_conn->rx_len = c_conn->ops.cmd_receive(c_conn->display, buffer + 1,
+			buf_size - 1, c_conn->cmd_rx_buf, buffer[0]);
+	mutex_unlock(&c_conn->lock);
+
+	if (c_conn->rx_len <= 0)
+		rc = -EINVAL;
+	else
+		rc = 0;
+end1:
+	kfree(input_dup);
+end:
+	kfree(input);
+	return rc;
+}
+
+static int _sde_debugfs_conn_cmd_panel_id_da_open(struct inode *inode, struct file *file)
+{
+	/* non-seekable */
+	file->private_data = inode->i_private;
+	return nonseekable_open(inode, file);
+}
+
+static ssize_t _sde_debugfs_conn_cmd_panel_id_da_read(struct file *file,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	const char *change_page_cmd = "0x15 0x01 0x00 0x01 0x00 0x00 0x02 0xFE 0x00";
+	const char *read_id_cmd = "0x01 0x06 0x01 0x00 0x01 0x00 0x00 0x01 0xDA";
+	struct drm_connector *connector = file->private_data;
+	struct sde_connector *c_conn = NULL;
+	int code_len = 44;
+	char *strs = NULL;
+	char *strs_temp = NULL;
+	int blen = 0, i = 0, n = 0, left_size = 0;
+
+	if (*ppos)
+		return 0;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument, conn is NULL\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	nt_tx_cmd(c_conn, change_page_cmd, code_len);
+	nt_rx_cmd(c_conn, read_id_cmd, code_len);
+
+	SDE_ERROR("panel id DA = 0x%.2x\n", c_conn->cmd_rx_buf[0]);
+
+	/*
+	 * Rx data was stored as HEX value in rx buffer,
+	 * convert 1 HEX value to strings for display, need 5 bytes.
+	 * for example: HEX value 0xFF, converted to strings, should be '0',
+	 * 'x','F','F' and 1 space.
+	 */
+	left_size = c_conn->rx_len * 5 + 1;
+	strs = kzalloc(left_size, GFP_KERNEL);
+	if (!strs)
+		return -ENOMEM;
+	strs_temp = strs;
+
+	mutex_lock(&c_conn->lock);
+	for (i = 0; i < c_conn->rx_len; i++) {
+		n = scnprintf(strs_temp, left_size, "0x%.2x ",
+			     c_conn->cmd_rx_buf[i]);
+		strs_temp += n;
+		left_size -= n;
+	}
+	mutex_unlock(&c_conn->lock);
+
+	blen = strlen(strs);
+	if (blen <= 0) {
+		SDE_ERROR("snprintf failed, blen %d\n", blen);
+		blen = -EFAULT;
+		goto err;
+	}
+
+	if (copy_to_user(buf, strs, blen)) {
+		SDE_ERROR("copy to user buffer failed\n");
+		blen = -EFAULT;
+		goto err;
+	}
+
+	*ppos += blen;
+
+err:
+	kfree(strs);
+	return blen;
+}
+
+static const struct file_operations conn_cmd_panel_id_da_fops = {
+	.open =         _sde_debugfs_conn_cmd_panel_id_da_open,
+	.read =         _sde_debugfs_conn_cmd_panel_id_da_read,
+};
+
+static int _sde_debugfs_conn_cmd_panel_id_db_open(struct inode *inode, struct file *file)
+{
+	/* non-seekable */
+	file->private_data = inode->i_private;
+	return nonseekable_open(inode, file);
+}
+
+static ssize_t _sde_debugfs_conn_cmd_panel_id_db_read(struct file *file,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	const char *change_page_cmd = "0x15 0x01 0x00 0x01 0x00 0x00 0x02 0xFE 0x00";
+	const char *read_id_cmd = "0x01 0x06 0x01 0x00 0x01 0x00 0x00 0x01 0xDB";
+	struct drm_connector *connector = file->private_data;
+	struct sde_connector *c_conn = NULL;
+	int code_len = 44;
+	char *strs = NULL;
+	char *strs_temp = NULL;
+	int blen = 0, i = 0, n = 0, left_size = 0;
+
+	if (*ppos)
+		return 0;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument, conn is NULL\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	nt_tx_cmd(c_conn, change_page_cmd, code_len);
+	nt_rx_cmd(c_conn, read_id_cmd, code_len);
+
+	SDE_ERROR("panel id DB = 0x%.2x\n", c_conn->cmd_rx_buf[0]);
+
+	/*
+	 * Rx data was stored as HEX value in rx buffer,
+	 * convert 1 HEX value to strings for display, need 5 bytes.
+	 * for example: HEX value 0xFF, converted to strings, should be '0',
+	 * 'x','F','F' and 1 space.
+	 */
+	left_size = c_conn->rx_len * 5 + 1;
+	strs = kzalloc(left_size, GFP_KERNEL);
+	if (!strs)
+		return -ENOMEM;
+	strs_temp = strs;
+
+	mutex_lock(&c_conn->lock);
+	for (i = 0; i < c_conn->rx_len; i++) {
+		n = scnprintf(strs_temp, left_size, "0x%.2x ",
+			     c_conn->cmd_rx_buf[i]);
+		strs_temp += n;
+		left_size -= n;
+	}
+	mutex_unlock(&c_conn->lock);
+
+	blen = strlen(strs);
+	if (blen <= 0) {
+		SDE_ERROR("snprintf failed, blen %d\n", blen);
+		blen = -EFAULT;
+		goto err;
+	}
+
+	if (copy_to_user(buf, strs, blen)) {
+		SDE_ERROR("copy to user buffer failed\n");
+		blen = -EFAULT;
+		goto err;
+	}
+
+	*ppos += blen;
+
+err:
+	kfree(strs);
+	return blen;
+}
+
+static const struct file_operations conn_cmd_panel_id_db_fops = {
+	.open =         _sde_debugfs_conn_cmd_panel_id_db_open,
+	.read =         _sde_debugfs_conn_cmd_panel_id_db_read,
+};
+
+static int _sde_debugfs_conn_cmd_panel_id_dc_open(struct inode *inode, struct file *file)
+{
+	/* non-seekable */
+	file->private_data = inode->i_private;
+	return nonseekable_open(inode, file);
+}
+
+static ssize_t _sde_debugfs_conn_cmd_panel_id_dc_read(struct file *file,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	const char *change_page_cmd = "0x15 0x01 0x00 0x01 0x00 0x00 0x02 0xFE 0x00";
+	const char *read_id_cmd = "0x01 0x06 0x01 0x00 0x01 0x00 0x00 0x01 0xDC";
+	struct drm_connector *connector = file->private_data;
+	struct sde_connector *c_conn = NULL;
+	int code_len = 44;
+	char *strs = NULL;
+	char *strs_temp = NULL;
+	int blen = 0, i = 0, n = 0, left_size = 0;
+
+	if (*ppos)
+		return 0;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument, conn is NULL\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	nt_tx_cmd(c_conn, change_page_cmd, code_len);
+	nt_rx_cmd(c_conn, read_id_cmd, code_len);
+
+	SDE_ERROR("panel id DC = 0x%.2x\n", c_conn->cmd_rx_buf[0]);
+
+	/*
+	 * Rx data was stored as HEX value in rx buffer,
+	 * convert 1 HEX value to strings for display, need 5 bytes.
+	 * for example: HEX value 0xFF, converted to strings, should be '0',
+	 * 'x','F','F' and 1 space.
+	 */
+	left_size = c_conn->rx_len * 5 + 1;
+	strs = kzalloc(left_size, GFP_KERNEL);
+	if (!strs)
+		return -ENOMEM;
+	strs_temp = strs;
+
+	mutex_lock(&c_conn->lock);
+	for (i = 0; i < c_conn->rx_len; i++) {
+		n = scnprintf(strs_temp, left_size, "0x%.2x ",
+			     c_conn->cmd_rx_buf[i]);
+		strs_temp += n;
+		left_size -= n;
+	}
+	mutex_unlock(&c_conn->lock);
+
+	blen = strlen(strs);
+	if (blen <= 0) {
+		SDE_ERROR("snprintf failed, blen %d\n", blen);
+		blen = -EFAULT;
+		goto err;
+	}
+
+	if (copy_to_user(buf, strs, blen)) {
+		SDE_ERROR("copy to user buffer failed\n");
+		blen = -EFAULT;
+		goto err;
+	}
+
+	*ppos += blen;
+
+err:
+	kfree(strs);
+	return blen;
+}
+
+static const struct file_operations conn_cmd_panel_id_dc_fops = {
+	.open =         _sde_debugfs_conn_cmd_panel_id_dc_open,
+	.read =         _sde_debugfs_conn_cmd_panel_id_dc_read,
+};
+
+static ssize_t store_hbm_mode(struct kobject *kobj,struct kobj_attribute *attr,const char *buf, size_t size)
+{
+	int rc = 0;
+	unsigned long hbm_mode;
+	rc = kstrtoul(buf, 0, &hbm_mode);
+
+	if (rc)
+		return rc;
+	if (hbm_mode)
+		panel_hbm_flag = 1;
+	else
+		panel_hbm_flag = 0;
+
+	sde_backlight_device_update_status(panel_feature_sde_conn->bl_device);
+
+	return size;
+}
+
+static ssize_t show_hbm_mode(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", panel_hbm_flag);
+}
+
+static ssize_t panel_id1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	const char *read_id_cmd = "0x01 0x06 0x01 0x00 0x01 0x00 0x00 0x01 0xDA";
+	struct sde_connector *sde_conn = panel_feature_sde_conn;
+	int code_len = 44;
+
+	nt_rx_cmd(sde_conn, read_id_cmd, code_len);
+
+	return sprintf(buf, "%.2x\n", sde_conn->cmd_rx_buf[0]);
+}
+
+static ssize_t panel_id2_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	const char *read_id_cmd = "0x01 0x06 0x01 0x00 0x01 0x00 0x00 0x01 0xDB";
+	struct sde_connector *sde_conn = panel_feature_sde_conn;
+	int code_len = 44;
+
+	nt_rx_cmd(sde_conn, read_id_cmd, code_len);
+
+	return sprintf(buf, "%.2x\n", sde_conn->cmd_rx_buf[0]);
+}
+
+static ssize_t panel_id3_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	const char *read_id_cmd = "0x01 0x06 0x01 0x00 0x01 0x00 0x00 0x01 0xDC";
+	struct sde_connector *sde_conn = panel_feature_sde_conn;
+	int code_len = 44;
+
+	nt_rx_cmd(sde_conn, read_id_cmd, code_len);
+
+	return sprintf(buf, "%.2x\n", sde_conn->cmd_rx_buf[0]);
+}
+
+extern int nt_cur_refresh_rate;
+static ssize_t store_skip_frame_mode(struct kobject *kobj,struct kobj_attribute *attr,const char *buf, size_t size)
+{
+	unsigned long refresh_rate_index = 0;
+	int rc = 0;
+
+	rc = kstrtoul(buf, 0, &refresh_rate_index);
+	if (rc)
+		return rc;
+
+	if (90 == nt_cur_refresh_rate || 60 == nt_cur_refresh_rate) {
+		SDE_ERROR("current refresh rate: %d, set to index %d failed\n", nt_cur_refresh_rate, refresh_rate_index);
+		return -EINVAL;
+	}
+
+	rc = set_refresh_rate(panel_feature_sde_conn, refresh_rate_index);
+	if (rc) {
+		SDE_ERROR("invalid refresh_rate_index, switch failed\n");
+		return -EINVAL;
+	}
+
+	SDE_ERROR("set refresh rate, index: %d\n", refresh_rate_index);
+
+	return size;
+}
+
+static ssize_t show_skip_frame_mode(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	int refresh_rate_index = 0;
+
+	refresh_rate_index = get_refresh_rate(panel_feature_sde_conn);
+
+	SDE_ERROR("get refresh rate, index: %d\n", refresh_rate_index);
+
+	return sprintf(buf, "%d\n", refresh_rate_index);
+}
+
+static struct kobj_attribute hbm_mode_attribute = __ATTR(hbm_mode, S_IRUGO | S_IWUSR, show_hbm_mode, store_hbm_mode);
+static struct kobj_attribute skip_frame_mode_attribute = __ATTR(skip_frame_mode, S_IRUGO | S_IWUSR, show_skip_frame_mode, store_skip_frame_mode);
+static struct kobj_attribute panel_id1_attribute = __ATTR(panel_id1, S_IRUGO | S_IWUSR, panel_id1_show, NULL);
+static struct kobj_attribute panel_id2_attribute = __ATTR(panel_id2, S_IRUGO | S_IWUSR, panel_id2_show, NULL);
+static struct kobj_attribute panel_id3_attribute = __ATTR(panel_id3, S_IRUGO | S_IWUSR, panel_id3_show, NULL);
+
+static struct attribute *panel_feature_attributes[] = {
+	&hbm_mode_attribute.attr,
+	&skip_frame_mode_attribute.attr,
+	&panel_id1_attribute.attr,
+	&panel_id2_attribute.attr,
+	&panel_id3_attribute.attr,
+
+	NULL,
+};
+
+static const struct attribute_group panel_feature_attr_group = {
+	.attrs = panel_feature_attributes,
+};
+
 #ifdef CONFIG_DEBUG_FS
 /**
  * sde_connector_init_debugfs - initialize connector debugfs
@@ -2481,6 +3105,33 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 		}
 	}
 
+	if (sde_connector->ops.cmd_receive) {
+		if (!debugfs_create_file("panel_id1", 0600,
+			connector->debugfs_entry,
+			connector, &conn_cmd_panel_id_da_fops)) {
+			SDE_ERROR("failed to create connector panel_id1\n");
+			return -ENOMEM;
+		}
+	}
+
+	if (sde_connector->ops.cmd_receive) {
+		if (!debugfs_create_file("panel_id2", 0600,
+			connector->debugfs_entry,
+			connector, &conn_cmd_panel_id_db_fops)) {
+			SDE_ERROR("failed to create connector panel_id2\n");
+			return -ENOMEM;
+		}
+	}
+
+	if (sde_connector->ops.cmd_receive) {
+		if (!debugfs_create_file("panel_id3", 0600,
+			connector->debugfs_entry,
+			connector, &conn_cmd_panel_id_dc_fops)) {
+			SDE_ERROR("failed to create connector panel_id3\n");
+			return -ENOMEM;
+		}
+	}
+
 	return 0;
 }
 #else
@@ -2490,8 +3141,16 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 }
 #endif
 
+int nt_is_panel_detected(void);
 static int sde_connector_late_register(struct drm_connector *connector)
 {
+	if (!panel_feature_node_exist && nt_is_panel_detected()) {
+		k_obj = kobject_create_and_add("panel_feature", NULL);
+		if (sysfs_create_group(k_obj, &panel_feature_attr_group))
+			pr_err("panel_feature_attr_group error!\n");
+		panel_feature_node_exist = 1;
+	}
+
 	return sde_connector_init_debugfs(connector);
 }
 
@@ -3138,6 +3797,11 @@ static int _sde_connector_install_properties(struct drm_device *dev,
 	c_conn->bl_scale_dirty = false;
 	c_conn->bl_scale = MAX_BL_SCALE_LEVEL;
 	c_conn->bl_scale_sv = MAX_SV_BL_SCALE_LEVEL;
+
+	msm_property_install_range(&c_conn->property_info, "finger_flag",
+		0x0, 0, 255, 0, CONNECTOR_PROP_FINGER_FLAG);
+	c_conn->fingerlayer_dirty = false;
+	c_conn->finger_flag = 0;
 
 	if (connector_type == DRM_MODE_CONNECTOR_DisplayPort)
 		msm_property_install_range(&c_conn->property_info,

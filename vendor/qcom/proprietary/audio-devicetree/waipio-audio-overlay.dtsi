@@ -5,7 +5,7 @@
 #include "waipio-lpi.dtsi"
 
 &lpass_cdc {
-	qcom,num-macros = <4>;
+	qcom,num-macros = <3>;
 	qcom,lpass-cdc-version = <6>;
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -164,6 +164,7 @@
 	};
 
 	wsa_macro: wsa-macro@3240000 {
+		status = "disabled";
 		compatible = "qcom,lpass-cdc-wsa-macro";
 		reg = <0x3240000 0x0>;
 		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
@@ -194,6 +195,7 @@
 			qcom,swr-num-dev = <2>;
 			qcom,dynamic-port-map-supported = <0>;
 			wsa883x_0221: wsa883x@02170221 {
+				status = "disabled";
 				compatible = "qcom,wsa883x";
 				reg = <0x2 0x2170221>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
@@ -207,6 +209,7 @@
 			};
 
 			wsa883x_0222: wsa883x@02170222 {
+				status = "disabled";
 				compatible = "qcom,wsa883x";
 				reg = <0x2 0x2170222>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
@@ -329,10 +332,10 @@
 		qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
 		qcom,cdc-vdd-mic-bias-current = <30000>;
 
-		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
-		qcom,cdc-micbias4-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2750>;
+		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias3-mv = <2750>;
+		qcom,cdc-micbias4-mv = <2750>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-rxtx",
 					   "cdc-vddio",
@@ -384,16 +387,10 @@
 			"IN1_HPHL", "HPHL_OUT",
 			"IN2_HPHR", "HPHR_OUT",
 			"IN3_AUX", "AUX_OUT",
-			"HAP_IN", "PCM_OUT",
-			"WSA SRC0_INP", "SRC0",
-			"WSA_TX DEC0_INP", "TX DEC0 MUX",
-			"WSA_TX DEC1_INP", "TX DEC1 MUX",
 			"RX_TX DEC0_INP", "TX DEC0 MUX",
 			"RX_TX DEC1_INP", "TX DEC1 MUX",
 			"RX_TX DEC2_INP", "TX DEC2 MUX",
 			"RX_TX DEC3_INP", "TX DEC3 MUX",
-			"SpkrLeft IN", "WSA_SPK1 OUT",
-			"SpkrRight IN", "WSA_SPK2 OUT",
 			"TX SWR_INPUT", "WCD_TX_OUTPUT",
 			"VA SWR_INPUT", "VA_SWR_CLK",
 			"VA SWR_INPUT", "WCD_TX_OUTPUT",
@@ -422,7 +419,7 @@
 		asoc-codec-names = "msm-stub-codec.1", "lpass-cdc",
 				   "wcd938x_codec", "swr-haptics",
 			   	"wsa-codec1", "wsa-codec2";
-		qcom,wsa-max-devs = <2>;
+		qcom,wsa-max-devs = <0>;
 		qcom,msm_audio_ssr_devs = <&audio_gpr>, <&lpi_tlmm>,
 				  <&lpass_cdc>;
 		qcom,upd_backends_used = "wcd";
@@ -435,9 +432,9 @@
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&tert_mi2s_sck_active &tert_mi2s_ws_active
-				&tert_mi2s_sd0_active>;
+				&tert_mi2s_sd0_active &tert_mi2s_sd1_active>;
 		pinctrl-1 = <&tert_mi2s_sck_sleep &tert_mi2s_ws_sleep
-				&tert_mi2s_sd0_sleep>;
+				&tert_mi2s_sd0_sleep &tert_mi2s_sd1_sleep>;
 		#gpio-cells = <0>;
 	};
 

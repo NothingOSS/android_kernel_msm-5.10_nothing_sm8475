@@ -70,8 +70,10 @@ static int goodix_i2c_read(struct device *dev, unsigned int reg,
 		msgs[1].len = transfer_length;
 
 		for (retry = 0; retry < GOODIX_BUS_RETRY_TIMES; retry++) {
-			if (likely(i2c_transfer(client->adapter, msgs, 2) == 2)) {
-				memcpy(&data[pos], msgs[1].buf, transfer_length);
+			if (likely(i2c_transfer(client->adapter,
+						msgs, 2) == 2)) {
+				memcpy(&data[pos], msgs[1].buf,
+				       transfer_length);
 				pos += transfer_length;
 				address += transfer_length;
 				break;
@@ -81,7 +83,7 @@ static int goodix_i2c_read(struct device *dev, unsigned int reg,
 		}
 		if (unlikely(retry == GOODIX_BUS_RETRY_TIMES)) {
 			ts_err("I2c read failed,dev:%02x,reg:%04x,size:%u",
-				client->addr, reg, len);
+			       client->addr, reg, len);
 			r = -EAGAIN;
 			goto read_exit;
 		}
@@ -102,8 +104,8 @@ static int goodix_i2c_write(struct device *dev, unsigned int reg,
 	unsigned char put_buf[128];
 	int retry, r = 0;
 	struct i2c_msg msg = {
-		.addr = client->addr,
-		.flags = !I2C_M_RD,
+			.addr = client->addr,
+			.flags = !I2C_M_RD,
 	};
 
 	if (likely(len + GOODIX_REG_ADDR_SIZE < sizeof(put_buf))) {
@@ -117,9 +119,9 @@ static int goodix_i2c_write(struct device *dev, unsigned int reg,
 
 	while (pos != len) {
 		if (unlikely(len - pos > I2C_MAX_TRANSFER_SIZE -
-				GOODIX_REG_ADDR_SIZE))
+			     GOODIX_REG_ADDR_SIZE))
 			transfer_length = I2C_MAX_TRANSFER_SIZE -
-				GOODIX_REG_ADDR_SIZE;
+			     GOODIX_REG_ADDR_SIZE;
 		else
 			transfer_length = len - pos;
 		msg.buf[0] = (address >> 24) & 0xFF;
@@ -167,16 +169,16 @@ static int goodix_i2c_probe(struct i2c_client *client,
 	int ret = 0;
 
 	ts_info("goodix i2c probe in");
-	ret = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
+	ret = i2c_check_functionality(client->adapter,
+		I2C_FUNC_I2C);
 	if (!ret)
 		return -EIO;
 
 	/* get ic type */
-	ret = goodix_get_ic_type(client->dev.of_node);
+	ret = goodix_get_ic_type(client->dev.of_node, &goodix_i2c_bus);
 	if (ret < 0)
 		return ret;
 
-	goodix_i2c_bus.ic_type = ret;
 	goodix_i2c_bus.bus_type = GOODIX_BUS_TYPE_I2C;
 	goodix_i2c_bus.dev = &client->dev;
 	goodix_i2c_bus.read = goodix_i2c_read;
@@ -223,9 +225,10 @@ static int goodix_i2c_remove(struct i2c_client *client)
 
 #ifdef CONFIG_OF
 static const struct of_device_id i2c_matchs[] = {
-	{.compatible = "goodix,gt9897",},
-	{.compatible = "goodix,gt9966",},
-	{.compatible = "goodix,gt9916",},
+	{.compatible = "goodix,brl-a",},
+	{.compatible = "goodix,brl-b",},
+	{.compatible = "goodix,brl-d",},
+	{.compatible = "goodix,nottingham",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, i2c_matchs);

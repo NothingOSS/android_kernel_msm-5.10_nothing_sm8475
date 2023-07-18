@@ -22,6 +22,9 @@
 #include "sde_dbg.h"
 #include "dsi_parser.h"
 
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
 
@@ -40,10 +43,13 @@
 u8 dbgfs_tx_cmd_buf[SZ_4K];
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
 static char dsi_display_secondary[MAX_CMDLINE_PARAM_LEN];
+static char nt2_panel_id[8];
 static struct dsi_display_boot_param boot_displays[MAX_DSI_ACTIVE_DISPLAY] = {
 	{.boot_param = dsi_display_primary},
 	{.boot_param = dsi_display_secondary},
 };
+
+int nt_cur_refresh_rate = 120;
 
 static void dsi_display_panel_id_notification(struct dsi_display *display);
 
@@ -5996,6 +6002,24 @@ static void dsi_display_firmware_display(const struct firmware *fw,
 	DSI_DEBUG("success\n");
 }
 
+static int panel_id_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n",nt2_panel_id);
+	return 0;
+}
+
+static int panel_id_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, panel_id_show, inode->i_private);
+}
+
+static const struct proc_ops panel_id_fops = {
+	.proc_open = panel_id_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 int dsi_display_dev_probe(struct platform_device *pdev)
 {
 	struct dsi_display *display = NULL;
@@ -6003,6 +6027,7 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	int rc = 0, index = DSI_PRIMARY;
 	bool firm_req = false;
 	struct dsi_display_boot_param *boot_disp;
+	struct proc_dir_entry *panel_id_dir;
 
 	if (!pdev || !pdev->dev.of_node) {
 		DSI_ERR("pdev not found\n");
@@ -6070,6 +6095,13 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	display->boot_disp = boot_disp;
 
 	dsi_display_parse_cmdline_topology(display, index);
+
+	if (!strcmp(display->display_type, "primary")) {
+		panel_id_dir = proc_create("panel_id", 0444, NULL, &panel_id_fops);
+		if (!panel_id_dir) {
+			DSI_ERR("panel_id proc_create failed\n");
+		}
+	}
 
 	platform_set_drvdata(pdev, display);
 
@@ -7777,6 +7809,9 @@ int dsi_display_set_mode(struct dsi_display *display,
 			adj_mode.priv_info->clk_rate_hz);
 
 	memcpy(display->panel->cur_mode, &adj_mode, sizeof(adj_mode));
+
+	nt_cur_refresh_rate = timing.refresh_rate;
+
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -9038,3 +9073,7 @@ module_param_string(dsi_display1, dsi_display_secondary, MAX_CMDLINE_PARAM_LEN,
 								0600);
 MODULE_PARM_DESC(dsi_display1,
 	"msm_drm.dsi_display1=<display node>:<configX> where <display node> is 'secondary dsi display node name' and <configX> where x represents index in the topology list");
+module_param_string(panel_id, nt2_panel_id, 8,
+								0600);
+MODULE_PARM_DESC(panel_id,
+	"msm_drm.panel_id=<ID1><ID2><ID3>");

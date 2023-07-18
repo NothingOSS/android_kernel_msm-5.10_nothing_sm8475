@@ -57,6 +57,7 @@
 #define CNSS_CAL_DB_FILE_NAME "wlfw_cal_db.bin"
 #define CNSS_CAL_START_PROBE_WAIT_RETRY_MAX 100
 #define CNSS_CAL_START_PROBE_WAIT_MS	500
+#define CNSS_NV_NO_REDDY_ERROR_CODE 16
 
 enum cnss_cal_db_op {
 	CNSS_CAL_DB_UPLOAD,
@@ -630,14 +631,19 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 				break;
 
 			ret = cnss_qmi_get_dms_mac(plat_priv);
-			if (ret == 0)
+                        
+			if (ret == 0 || ret == CNSS_NV_NO_REDDY_ERROR_CODE)
 				break;
+
 			msleep(CNSS_DMS_QMI_CONNECTION_WAIT_MS);
 		}
 		if (!plat_priv->dms.mac_valid) {
 			cnss_pr_err("Unable to get MAC from DMS after retries\n");
-			CNSS_ASSERT(0);
-			return -EINVAL;
+
+			//CNSS_ASSERT(0);
+			//return -EINVAL;
+			return 0;
+
 		}
 	}
 qmi_send:

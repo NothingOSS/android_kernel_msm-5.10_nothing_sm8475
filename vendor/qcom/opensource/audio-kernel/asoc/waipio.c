@@ -105,7 +105,7 @@ static int msm_int_wsa_init(struct snd_soc_pcm_runtime*);
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
-	.detect_extn_cable = true,
+	.detect_extn_cable = false,
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
@@ -462,7 +462,7 @@ static void *def_wcd_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
-	btn_high[1] = 150;
+	btn_high[1] = 137;
 	btn_high[2] = 237;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
@@ -803,6 +803,7 @@ static struct snd_soc_dai_link msm_rx_tx_cdc_dma_be_dai_links[] = {
 		.ops = &msm_common_be_ops,
 		SND_SOC_DAILINK_REG(rx_dma_rx5),
 	},
+#if 0
 	{
 		.name = LPASS_BE_RX_CDC_DMA_RX_6,
 		.stream_name = LPASS_BE_RX_CDC_DMA_RX_6,
@@ -814,6 +815,7 @@ static struct snd_soc_dai_link msm_rx_tx_cdc_dma_be_dai_links[] = {
 		.ops = &msm_common_be_ops,
 		SND_SOC_DAILINK_REG(rx_dma_rx6),
 	},
+#endif
 	/* TX CDC DMA Backend DAI Links */
 	{
 		.name = LPASS_BE_TX_CDC_DMA_TX_3,
@@ -1381,10 +1383,14 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev, int w
 		switch (wsa_max_devs) {
 		case MONO_SPEAKER:
 		case STEREO_SPEAKER:
-			memcpy(msm_waipio_dai_links + total_links,
-			       msm_wsa_cdc_dma_be_dai_links,
-			       sizeof(msm_wsa_cdc_dma_be_dai_links));
-			total_links += ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links);
+			rc = of_property_read_u32(dev->of_node, "qcom,wsa-max-devs ", &val);
+			if (!rc && val) {
+				dev_dbg(dev, "%s(): WSA support present\n");
+				memcpy(msm_waipio_dai_links + total_links,
+				       msm_wsa_cdc_dma_be_dai_links,
+				       sizeof(msm_wsa_cdc_dma_be_dai_links));
+				total_links += ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links);
+			}
 			break;
 		case QUAD_SPEAKER:
 			memcpy(msm_waipio_dai_links + total_links,

@@ -24,6 +24,8 @@
 #include "msm_drv.h"
 
 #define MAX_BL_LEVEL 4096
+#define HBM_BL_LEVEL 4080
+
 #define MAX_BL_SCALE_LEVEL 1024
 #define MAX_SV_BL_SCALE_LEVEL 65535
 #define SV_BL_SCALE_CAP (MAX_SV_BL_SCALE_LEVEL * 4)
@@ -51,6 +53,33 @@
 #define MIPI_DSI_MSG_CMD_DMA_SCHED BIT(5)
 #define MIPI_DSI_MSG_BATCH_COMMAND BIT(6)
 #define MIPI_DSI_MSG_UNICAST_COMMAND BIT(7)
+
+#define COMMAND_LENGTH_1_BYTE_SEND	44
+#define COMMAND_LENGTH_2_BYTE_SEND	49
+#define COMMAND_LENGTH_GET_VALUE	44
+
+enum dsi_cmd_sfm_set_type {
+	DSI_CMD_SET_FRAME = 0,
+	DSI_CMD_DISABLE_SKIP_FRAME_MODE,
+	DSI_CMD_GET_REG2F,
+	DSI_CMD_GET_REG6D,
+	DSI_CMD_TE_NOTFOLLOW_SOURCE,
+	DSI_CMD_TE_FOLLOW_SOURCE,
+	DSI_CMD_30HZ_DIMMING,
+	DSI_CMD_10HZ_DIMMING,
+	DSI_CMD_1HZ_DIMMING,
+	DSI_CMD_60HZ_NODIMMING,
+	DSI_CMD_30HZ_NODIMMING,
+	DSI_CMD_24HZ_NODIMMING,
+	DSI_CMD_10HZ_NODIMMING,
+	DSI_CMD_1HZ_NODIMMING,
+	DSI_CMD_SFM_MAX
+};
+
+struct dsi_display_refresh_rate_cmd_set {
+	char *cmds;
+	u32 count;
+};
 
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
@@ -139,6 +168,8 @@ struct dsi_backlight_config {
 
 	u32 bl_min_level;
 	u32 bl_max_level;
+	u32 bl_hbm_level;
+
 	u32 brightness_max_level;
 	/* current brightness value */
 	u32 brightness;
@@ -288,6 +319,9 @@ struct dsi_panel {
 	enum dsi_panel_physical_type panel_type;
 
 	struct dsi_panel_ops panel_ops;
+
+	struct dsi_display_refresh_rate_cmd_set nt_cmd_sets[DSI_CMD_SFM_MAX];
+
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -424,4 +458,7 @@ int dsi_panel_create_cmd_packets(const char *data, u32 length, u32 count,
 void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set);
 
 void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set);
+
+int nt_display_parse_switch_cmds(struct dsi_panel *panel);
+
 #endif /* _DSI_PANEL_H_ */

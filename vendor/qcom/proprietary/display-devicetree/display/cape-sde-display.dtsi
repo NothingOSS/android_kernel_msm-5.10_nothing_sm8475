@@ -62,7 +62,7 @@
 
 	vddio-supply = <&L12C>;
 	vci-supply = <&L13C>;
-	extvdd-supply = <&L1D>;
+	//extvdd-supply = <&L1D>;
 };
 
 &sde_dsi1 {
