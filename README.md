@@ -6,6 +6,10 @@
      - vendor/qcom/proprietary/
      - vendor/qcom/opensource/
 
+- OS 2.0.2
+  - Optimize WLAN.
+  - Add charge error code
+
 
 # How do I submit patches to Android Common Kernels
 
