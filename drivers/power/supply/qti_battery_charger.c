@@ -109,8 +109,8 @@ enum nt_charge_abnormal_type {
 		NT_NOTIFY_BAT_FULL_PRE_LOW_TEMP  =      1 << 11,
 		NT_NOTIFY_BAT_FULL_THIRD_BATTERY     =  1 << 12,
 		NT_NOTIFY_CHARGE_PUMP_ERR            =  1 << 13,
-		NT_NOTIFY_SHORT_C_BAT_FULL_ERR_CODE2 =  1 << 14,
-		NT_NOTIFY_SHORT_C_BAT_FULL_ERR_CODE3 =  1 << 15,
+		NT_NOTIFY_WLS_TX_FOD_ERR_CODE2 =  1 << 14,
+		NT_NOTIFY_BAT_SOC_ZERO_ERR =  1 << 15,
 		NT_NOTIFY_SHORT_C_BAT_DYNAMIC_ERR_CODE4 =   1 << 16,
 		NT_NOTIFY_SHORT_C_BAT_DYNAMIC_ERR_CODE5 =   1 << 17,
 		NT_NOTIFY_CHARGER_TERMINAL   =          1 << 18,
@@ -1350,7 +1350,7 @@ static void nt_update_event_work(struct work_struct *work)
 		bcdev->nt_need_update = true;
 	}
 	if(bcdev->nt_abnormal_status_val & (NT_NOTIFY_BAT_OVER_TEMP | NT_NOTIFY_BAT_LOW_TEMP |
-		NT_NOTIFY_SHORT_C_BAT_FULL_ERR_CODE2))
+		NT_NOTIFY_WLS_TX_FOD_ERR_CODE2 | NT_NOTIFY_BAT_SOC_ZERO_ERR))
 	{
 		bcdev->nt_need_update = true;
 	}
