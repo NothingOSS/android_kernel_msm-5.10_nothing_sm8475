@@ -26,6 +26,8 @@
 #define NT_CHG
 #define NT_CHG_WIRE
 #ifdef NT_CHG
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/ctype.h>
 #define BC_WLS_ST38_PATCH_PUSH		0x48
@@ -65,6 +67,7 @@
 #define BC_HBOOST_VMAX_CLAMP_NOTIFY	0x79
 #define BC_GENERIC_NOTIFY		0x80
 #ifdef NT_CHG
+#define BC_SET_DEBUG_PARAM_REQ		0x46
 #define OEM_GET_LOG_BUFFER                          0x0050
 #define OEM_GET_REGISTER_BUFFER                     0x0051
 #define OEM_CHARGE_ABNORMAL                         0x0052
@@ -92,6 +95,28 @@ enum nt_notify_count_times {
 };
 enum nt_chg_data_type {
         NT_CHG_USB_TEMP = 1,
+};
+
+ /**
+    @}
+  */
+
+ /**  for userspace to get/set debug params */
+ /**
+    @{
+  */
+enum battman_debug_param_type_e{
+  BC_DEBUG_PARAM_SET_ICL = 0,
+  BC_DEBUG_PARAM_SUSPEND_USB,
+  BC_DEBUG_PARAM_SMB_SETTING,
+  BC_DEBUG_PARAM_CHG_TEMP_OVR,
+  BC_DEBUG_PARAM_SET_MAIN_TEMP,
+  BC_DEBUG_PARAM_SET_SMB_TEMP,
+  BC_DEBUG_PARAM_WLS_TX_SOURCE,
+  BC_DEBUG_PARAM_EN_OPT_MTC_CHG,
+  BC_DEBUG_PARAM_USB_OTG_SOURCE,
+  BC_DEBUG_PARAM_AGING_TEST,
+  BC_DEBUG_PARAM_MAX
 };
 
 enum nt_charge_abnormal_type {
@@ -192,6 +217,7 @@ enum usb_property_id {
 	USB_EXIST_CHARGE_PUMP,
 	NT_CHG_PARAM,
 	USB_CHARGE_KEY_INFO,
+	NT_OTG_ENABLE,
 #endif
 	USB_SCOPE,
 	USB_CONNECTOR_TYPE,
@@ -263,6 +289,18 @@ struct battman_abnormal_resp {
 	struct pmic_glink_hdr	hdr;
 	int value;
 };
+
+struct nt_proc {
+    char *name;
+    struct proc_ops	fops;
+};
+
+/** Resquest Message; for set debug buffer */
+struct battman_set_debug_param_req_msg {
+	struct pmic_glink_hdr	hdr;
+	u32 debug_param_property_id;
+	u32 data;
+};  /* Message */
 #endif
 struct battery_charger_req_msg {
 	struct pmic_glink_hdr	hdr;
@@ -398,7 +436,7 @@ struct battery_chg_dev {
 	bool				nt_usb_temp_abnormal;
 	bool				nt_charge_pump_abnormal;
 	bool				nt_charge_full_temp_abnormal;
-
+	u32				is_aging_test;
 };
 
 static const int battery_prop_map[BATT_PROP_MAX] = {
@@ -1039,6 +1077,10 @@ static void handle_message(struct battery_chg_dev *bcdev, void *data,
 		pr_err("nt_abnormal_status_val:%d",bcdev->nt_abnormal_status_val);
 		ack_set = true;
 		break;
+	case BC_SET_DEBUG_PARAM_REQ:
+		pr_err("set debug param req\n");
+		ack_set = true;
+		break;
 #endif
 	default:
 		pr_err("Unknown opcode: %u\n", resp_msg->hdr.opcode);
@@ -1375,6 +1417,170 @@ static void nt_update_event_work(struct work_struct *work)
 	return;
 }
 #endif
+#ifdef NT_CHG
+int force_set_usb_icl(struct battery_chg_dev *bcdev, int val)
+{
+	struct battman_set_debug_param_req_msg req_msg = { { 0 } };
+	int rc = 0;
+
+	req_msg.hdr.owner = MSG_OWNER_BC;
+	req_msg.hdr.type = MSG_TYPE_REQ_RESP;
+	req_msg.hdr.opcode = BC_SET_DEBUG_PARAM_REQ;
+	req_msg.debug_param_property_id = BC_DEBUG_PARAM_AGING_TEST;
+	if (val < 0)
+		req_msg.data = UINT_MAX;
+	else
+		req_msg.data = (u32)val/1000;
+
+	rc = battery_chg_write(bcdev, &req_msg, sizeof(req_msg));
+	if (rc < 0)
+		pr_err("Failed to set icl, rc=%d\n", rc);
+	else
+		pr_err("aging_test: set icl %d mA\n", req_msg.data);
+
+	return rc;
+}
+
+static int is_aging_test_show(struct seq_file *m, void *v)
+{
+	struct battery_chg_dev *bcdev = m->private;
+
+	seq_printf(m, "is_aging_test:%d\n", bcdev->is_aging_test);
+
+	return 0;
+}
+
+static int is_aging_test_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, is_aging_test_show, PDE_DATA(inode));
+}
+
+static int nt_otg_enable_show(struct seq_file *m, void *v)
+{
+	struct battery_chg_dev *bcdev = m->private;
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_USB];
+	int rc;
+	if((pst == NULL) || (bcdev == NULL))
+	{
+        return -EINVAL;
+	}
+	rc = read_property_id(bcdev, pst, NT_OTG_ENABLE);
+	if (rc < 0)
+		return rc;
+	seq_printf(m, "%d\n", pst->prop[NT_OTG_ENABLE]);
+	return 0;
+}
+
+static int nt_otg_enable_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, nt_otg_enable_show, PDE_DATA(inode));
+}
+
+static ssize_t nt_otg_enable_write(struct file *file, const char __user *buff,
+               size_t count, loff_t *ppos)
+{
+	struct battery_chg_dev *bcdev = PDE_DATA(file_inode(file));
+	u8 *buf_tmp = NULL;
+	int buflen = count;
+	u32 val;
+	if(bcdev == NULL)
+	{
+        return -EINVAL;
+	}
+	if (buflen < 0) {
+		pr_err("proc count fail:%d\n", buflen);
+		return -EINVAL;
+	} else {
+		buf_tmp = (u8 *)kzalloc(buflen * sizeof(u8), GFP_KERNEL);
+		if (buf_tmp == NULL) {
+			pr_err("proc write buf zalloc fail\n");
+			return -ENOMEM;
+		}
+	}
+
+	if (copy_from_user(buf_tmp, buff, buflen)) {
+		pr_err("proc nt_otg_enable fail\n");
+		goto exit;
+	}
+
+	if (kstrtou32(buf_tmp, 0, &val))
+		goto exit;
+	write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_USB],
+				NT_OTG_ENABLE, val);
+exit:
+	kfree(buf_tmp);
+	buf_tmp = NULL;
+	return buflen;
+}
+
+static ssize_t is_aging_test_write(struct file *file, const char __user *buff,
+               size_t count, loff_t *ppos)
+{
+	struct battery_chg_dev *bcdev = PDE_DATA(file_inode(file));
+	u8 *buf_tmp = NULL;
+	int buflen = count;
+
+	if (buflen < 0) {
+		pr_err("proc count fail:%d\n", buflen);
+		return -EINVAL;
+	} else {
+		buf_tmp = (u8 *)kzalloc(buflen * sizeof(u8), GFP_KERNEL);
+		if (buf_tmp == NULL) {
+			pr_err("proc write buf zalloc fail\n");
+			return -ENOMEM;
+		}
+	}
+
+	if (copy_from_user(buf_tmp, buff, buflen)) {
+		pr_err("proc is_aging_test states fail\n");
+		goto exit;
+	}
+
+	if (kstrtou32(buf_tmp, 0, &bcdev->is_aging_test))
+		goto exit;
+	pr_info("write is_aging_test %d success\n", bcdev->is_aging_test);
+
+	if (!bcdev->is_aging_test)
+		force_set_usb_icl(bcdev, -1);
+
+exit:
+	kfree(buf_tmp);
+	buf_tmp = NULL;
+	return buflen;
+}
+
+static const struct proc_ops is_aging_test_proc_ops = {
+	.proc_open              = is_aging_test_open,
+	.proc_read              = seq_read,
+	.proc_lseek             = seq_lseek,
+	.proc_release           = single_release,
+	.proc_write             = is_aging_test_write,
+};
+
+const struct nt_proc entries[] = {
+	{"nt_otg_enable",{.proc_open = nt_otg_enable_open,
+	                  .proc_read = seq_read,
+	                  .proc_lseek = seq_lseek,
+	                  .proc_release = single_release,
+	                  .proc_write = nt_otg_enable_write,}
+	}
+};
+
+int create_aging_proc_file(struct battery_chg_dev *bcdev)
+{
+	struct proc_dir_entry *dir;
+
+	dir = NULL;
+	dir = proc_create_data("is_aging_test", 0666, NULL, &is_aging_test_proc_ops, bcdev);
+
+	if (!dir) {
+		pr_err("unable to create /proc/is_aging_test\n");
+		return -EPERM;
+	}
+
+	return 0;
+}
+#endif
 
 static void handle_notification(struct battery_chg_dev *bcdev, void *data,
 				size_t len)
@@ -1617,6 +1823,11 @@ static int usb_psy_set_prop(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+#ifdef NT_CHG
+		if(bcdev->is_aging_test)
+			rc = force_set_usb_icl(bcdev, pval->intval);
+		else
+#endif
 		rc = usb_psy_set_icl(bcdev, prop_id, pval->intval);
 		break;
 	default:
@@ -3487,6 +3698,7 @@ static int battery_chg_probe(struct platform_device *pdev)
 #ifdef NT_CHG
 	struct psy_state *pst;
 	int adsp_init_try = 0;
+	struct proc_dir_entry *nt_chg_proc_dir = NULL;
 #endif
 
 	bcdev = devm_kzalloc(&pdev->dev, sizeof(*bcdev), GFP_KERNEL);
@@ -3604,6 +3816,20 @@ static int battery_chg_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+#ifdef NT_CHG
+	create_aging_proc_file(bcdev);
+	nt_chg_proc_dir =  proc_mkdir("charger", NULL);
+	if(!nt_chg_proc_dir){
+		pr_err("proc dir creates failed !!\n");
+		return -ENOMEM;
+	}
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create_data(entries[i].name, 0666, nt_chg_proc_dir, &(entries[i].fops), bcdev)){
+			pr_info("%s: create /proc/charger/%s failed\\n",__func__, entries[i].name);
+		}
+	}
+	bcdev->is_aging_test = 0;
+#endif
 	bcdev->wls_fw_update_time_ms = WLS_FW_UPDATE_TIME_MS;
 	battery_chg_add_debugfs(bcdev);
 	bcdev->notify_en = false;
