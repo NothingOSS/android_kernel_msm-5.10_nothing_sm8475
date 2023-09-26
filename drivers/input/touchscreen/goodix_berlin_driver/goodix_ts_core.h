@@ -222,6 +222,8 @@ struct goodix_ic_info_misc { /* other data */
 	u32 touch_data_addr;
 	u16 touch_data_head_len;
 	u16 point_struct_len;
+	u16 screen_real_max_x;
+	u16 screen_real_max_y;
 	u16 reserved1;
 	u16 reserved2;
 	u32 mutual_rawdata_addr;
@@ -234,6 +236,7 @@ struct goodix_ic_info_misc { /* other data */
 	u32 iq_refdata_addr;
 	u32 im_rawdata_addr;
 	u16 im_readata_len;
+	u16 im_rawdata_len;
 	u32 noise_rawdata_addr;
 	u16 noise_rawdata_len;
 	u32 stylus_rawdata_addr;
@@ -527,6 +530,8 @@ struct goodix_ts_core {
 
 	struct notifier_block ts_notifier;
 	struct goodix_ts_esd ts_esd;
+	atomic_t enable_replay;
+
 
 #if IS_ENABLED(CONFIG_DRM)
 	struct notifier_block fb_notifier;
@@ -691,6 +696,9 @@ int inspect_module_init(struct goodix_ts_core *core_data);
 void inspect_module_exit(void);
 int goodix_tools_init(void);
 void goodix_tools_exit(void);
+int replay_module_init(struct goodix_ts_core *core_data);
+void replay_module_exit(void);
+int fill_replay_data(u8 *buf);
 int get_fw_version_info(struct goodix_fw_version *fw_version);
 
 #endif

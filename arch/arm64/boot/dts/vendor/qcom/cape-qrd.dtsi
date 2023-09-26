@@ -275,7 +275,7 @@
 	goodix-berlin@0 {
 		compatible = "goodix,brl-d";
 		reg = <0>;
-		spi-max-frequency = <6000000>;
+		spi-max-frequency = <20000000>;
 
 		goodix,avdd-name = "avdd";
 		avdd-supply = <&L3C>;

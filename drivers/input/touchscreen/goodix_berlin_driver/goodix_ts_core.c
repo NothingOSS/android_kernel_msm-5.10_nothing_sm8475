@@ -2443,6 +2443,9 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 	/* inspect init */
 	inspect_module_init(cd);
 
+	/* replay module init */
+	replay_module_init(cd);
+
 	return 0;
 exit:
 	goodix_ts_pen_dev_remove(cd);
@@ -2838,6 +2841,7 @@ static int goodix_ts_remove(struct platform_device *pdev)
 	goodix_tools_exit();
 
 	if (core_data->init_stage >= CORE_INIT_STAGE2) {
+		replay_module_exit();
 		gesture_module_exit();
 		inspect_module_exit();
 		hw_ops->irq_enable(core_data, false);

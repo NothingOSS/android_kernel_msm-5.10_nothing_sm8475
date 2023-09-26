@@ -1210,19 +1210,14 @@ static int goodix_touch_handler(struct goodix_ts_core *cd,
 				u8 *pre_buf, u32 pre_buf_len)
 {
 	struct goodix_ts_hw_ops *hw_ops = cd->hw_ops;
-	struct goodix_ic_info_misc *misc = &cd->ic_info.misc;
 	struct goodix_touch_data *touch_data = &ts_event->touch_data;
 	struct goodix_pen_data *pen_data = &ts_event->pen_data;
-	static u8 buffer[IRQ_EVENT_HEAD_LEN +
-			 BYTES_PER_POINT * GOODIX_MAX_TOUCH + 2];
+	u8 *buffer = pre_buf;
 	u8 touch_num = 0;
 	int ret = 0;
 	u8 point_type = 0;
 	static u8 pre_finger_num;
 	static u8 pre_pen_num;
-
-	/* copy pre-data to buffer */
-	memcpy(buffer, pre_buf, pre_buf_len);
 
 	touch_num = buffer[2] & 0x0F;
 
@@ -1231,16 +1226,6 @@ static int goodix_touch_handler(struct goodix_ts_core *cd,
 		return -EINVAL;
 	}
 
-	if (unlikely(touch_num > 2)) {
-		ret = hw_ops->read(cd,
-				misc->touch_data_addr + pre_buf_len,
-				&buffer[pre_buf_len],
-				(touch_num - 2) * BYTES_PER_POINT);
-		if (ret) {
-			ts_debug("failed get touch data");
-			return ret;
-		}
-	}
 
 	/* read done */
 	hw_ops->after_event_handler(cd);
@@ -1312,17 +1297,22 @@ static int brl_event_handler(struct goodix_ts_core *cd,
 {
 	struct goodix_ts_hw_ops *hw_ops = cd->hw_ops;
 	struct goodix_ic_info_misc *misc = &cd->ic_info.misc;
-	int pre_read_len;
-	u8 pre_buf[32];
+	static u8 pre_buf[2500];
+	int pre_read_len = 106;
 	u8 event_status;
 	int ret;
 
 	memset(ts_event, 0, sizeof(*ts_event));
 
-	pre_read_len = IRQ_EVENT_HEAD_LEN +
-		BYTES_PER_POINT * 2 + COOR_DATA_CHECKSUM_SIZE;
-	ret = hw_ops->read(cd, misc->touch_data_addr,
-			   pre_buf, pre_read_len);
+	if (atomic_read(&cd->enable_replay)) {
+		ret = hw_ops->read(cd, misc->touch_data_addr,
+			pre_buf, sizeof(pre_buf));
+		fill_replay_data(&pre_buf[248]);
+	} else {
+		ret = hw_ops->read(cd, misc->touch_data_addr,
+			pre_buf, pre_read_len);
+	}
+
 	if (ret) {
 		ts_debug("failed get event head data");
 		return ret;

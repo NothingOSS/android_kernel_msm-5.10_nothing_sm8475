@@ -9,4 +9,5 @@ goodix_core-y := \
 				goodix_brl_fwupdate.o \
 				goodix_ts_gesture.o \
 				goodix_ts_inspect.o \
+				goodix_replay.o \
 				goodix_ts_tools.o
