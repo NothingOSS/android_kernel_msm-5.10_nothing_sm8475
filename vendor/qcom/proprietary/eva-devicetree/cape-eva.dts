@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/soc/qcom,ipcc.h>
+#include <dt-bindings/interconnect/qcom,waipio.h>
+#include <dt-bindings/clock/qcom,videocc-waipio.h>
+#include <dt-bindings/clock/qcom,gcc-waipio.h>
+#include "waipio-eva.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. cape/ukee v1 SoC";
+	compatible = "qcom,cape", "qcom,cape-v2", "qcom,ukee";
+	qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>, <591 0x10000>;
+	qcom,board-id = <0 0>;
+};
