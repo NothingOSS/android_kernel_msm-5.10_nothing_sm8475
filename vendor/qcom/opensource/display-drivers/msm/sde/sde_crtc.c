@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2014-2021 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
@@ -602,14 +602,18 @@ static void _sde_crtc_setup_blend_cfg(struct sde_crtc_mixer *mixer,
 	uint32_t blend_op, fg_alpha, bg_alpha;
 	uint32_t blend_type;
 	struct sde_hw_mixer *lm = mixer->hw_lm;
+	struct drm_plane_state *plane_state = &pstate->base;
 
 	/* default to opaque blending */
 	fg_alpha = sde_plane_get_property(pstate, PLANE_PROP_ALPHA);
 	bg_alpha = 0xFF - fg_alpha;
+	if (sde_plane_property_is_dirty(plane_state, PLANE_PROP_BG_ALPHA))
+		bg_alpha = sde_plane_get_property(pstate, PLANE_PROP_BG_ALPHA);
 	blend_op = SDE_BLEND_FG_ALPHA_FG_CONST | SDE_BLEND_BG_ALPHA_BG_CONST;
 	blend_type = sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP);
 
-	SDE_DEBUG("blend type:0x%x blend alpha:0x%x\n", blend_type, fg_alpha);
+	SDE_DEBUG("blend type:0x%x blend alpha:0x%x bg_alpha:0x%x\n",
+			blend_type, fg_alpha, bg_alpha);
 
 	switch (blend_type) {
 
@@ -787,6 +791,7 @@ static int _sde_crtc_set_roi_v1(struct drm_crtc_state *state,
 	crtc = cstate->base.crtc;
 
 	memset(&cstate->user_roi_list, 0, sizeof(cstate->user_roi_list));
+	memset(&cstate->cached_user_roi_list, 0, sizeof(cstate->cached_user_roi_list));
 
 	if (!usr_ptr) {
 		SDE_DEBUG("crtc%d: rois cleared\n", DRMID(crtc));
@@ -4733,13 +4738,14 @@ static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 	const struct drm_plane_state *pstate;
 	struct sde_plane_state *sde_pstate;
 	int rc = 0, i;
+	bool is_fsc = sde_crtc_is_connector_fsc(cstate);
 
 	/* Check dim layer rect bounds and stage */
 	for (i = 0; i < cstate->num_dim_layers; i++) {
 		if ((CHECK_LAYER_BOUNDS(cstate->dim_layer[i].rect.y,
-			cstate->dim_layer[i].rect.h, mode->vdisplay)) ||
+			cstate->dim_layer[i].rect.h, GET_MODE_HEIGHT(is_fsc, mode))) ||
 		    (CHECK_LAYER_BOUNDS(cstate->dim_layer[i].rect.x,
-			cstate->dim_layer[i].rect.w, mode->hdisplay)) ||
+			cstate->dim_layer[i].rect.w, GET_MODE_WIDTH(is_fsc, mode))) ||
 		    (cstate->dim_layer[i].stage >= SDE_STAGE_MAX) ||
 		    (!cstate->dim_layer[i].rect.w) ||
 		    (!cstate->dim_layer[i].rect.h)) {
@@ -4749,8 +4755,8 @@ static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 					cstate->dim_layer[i].rect.w,
 					cstate->dim_layer[i].rect.h,
 					cstate->dim_layer[i].stage);
-			SDE_ERROR("display: %dx%d\n", mode->hdisplay,
-					mode->vdisplay);
+			SDE_ERROR("display: %dx%d\n", GET_MODE_WIDTH(is_fsc, mode),
+					GET_MODE_HEIGHT(is_fsc, mode));
 			rc = -E2BIG;
 			goto end;
 		}
@@ -5031,6 +5037,21 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	return 0;
 }
 
+bool sde_crtc_is_connector_fsc(struct sde_crtc_state *cstate)
+{
+	struct sde_connector *sde_conn;
+	int i;
+
+	for (i = 0; i < cstate->num_connectors; i++) {
+		sde_conn = to_sde_connector(cstate->connectors[i]);
+		if (sde_crtc_state_in_clone_mode(
+				sde_conn->encoder, &cstate->base))
+			continue;
+		return sde_conn->is_fsc;
+	}
+	return false;
+}
+
 static int _sde_crtc_check_get_pstates(struct drm_crtc *crtc,
 		struct drm_crtc_state *state,
 		struct drm_display_mode *mode,
@@ -5047,6 +5068,7 @@ static int _sde_crtc_check_get_pstates(struct drm_crtc *crtc,
 	int inc_sde_stage = 0;
 	struct sde_kms *kms;
 	u32 blend_type;
+	bool is_fsc;
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
@@ -5058,7 +5080,7 @@ static int _sde_crtc_check_get_pstates(struct drm_crtc *crtc,
 	}
 
 	memset(pipe_staged, 0, sizeof(pipe_staged));
-
+	is_fsc = sde_crtc_is_connector_fsc(cstate);
 	mixer_width = sde_crtc_get_mixer_width(sde_crtc, cstate, mode);
 	mixer_height = sde_crtc_get_mixer_height(sde_crtc, cstate, mode);
 
@@ -5113,15 +5135,15 @@ static int _sde_crtc_check_get_pstates(struct drm_crtc *crtc,
 		(*cnt)++;
 
 		if (CHECK_LAYER_BOUNDS(pstate->crtc_y, pstate->crtc_h,
-				GET_MODE_HEIGHT(cstate->in_fsc_mode, mode)) ||
+				GET_MODE_HEIGHT(is_fsc, mode)) ||
 		    CHECK_LAYER_BOUNDS(pstate->crtc_x, pstate->crtc_w,
-				GET_MODE_WIDTH(cstate->in_fsc_mode, mode))) {
+				GET_MODE_WIDTH(is_fsc, mode))) {
 			SDE_ERROR("invalid vertical/horizontal destination\n");
 			SDE_ERROR("y:%d h:%d vdisp:%d x:%d w:%d hdisp:%d\n",
 				pstate->crtc_y, pstate->crtc_h,
-				GET_MODE_HEIGHT(cstate->in_fsc_mode, mode),
+				GET_MODE_HEIGHT(is_fsc, mode),
 				pstate->crtc_x, pstate->crtc_w,
-				GET_MODE_WIDTH(cstate->in_fsc_mode, mode));
+				GET_MODE_WIDTH(is_fsc, mode));
 			return -E2BIG;
 		}
 
@@ -5335,6 +5357,8 @@ static int _sde_crtc_check_plane_layout(struct drm_crtc *crtc,
 
 		pstate = to_sde_plane_state(plane_state);
 		layout_split = crtc_state->mode.hdisplay >> 1;
+		if (sde_crtc_is_connector_fsc(to_sde_crtc_state(crtc_state)))
+			layout_split /= PLANAR_RGB_PACKING;
 
 		if (plane_state->crtc_x >= layout_split) {
 			plane_state->crtc_x -= layout_split;
@@ -5369,10 +5393,14 @@ static int _sde_crtc_check_fsc_planes(struct drm_crtc *crtc,
 	struct sde_format *format = NULL;
 	struct drm_plane *plane = NULL;
 	struct drm_plane_state *plane_state = NULL;
+	struct sde_plane_state *pstate = NULL;
 	struct sde_crtc_state *cstate;
 	int fsc_plane_count = 0, non_fsc_plane_count = 0;
+	bool is_fsc_mode, is_dirty;
+	uint32_t bg_alpha;
 
 	cstate = to_sde_crtc_state(crtc_state);
+	is_fsc_mode = sde_crtc_is_connector_fsc(cstate);
 
 	drm_atomic_crtc_state_for_each_plane(plane, crtc_state) {
 		plane_state = drm_atomic_get_new_plane_state(
@@ -5380,12 +5408,23 @@ static int _sde_crtc_check_fsc_planes(struct drm_crtc *crtc,
 		if (!plane_state)
 			continue;
 
+		pstate = to_sde_plane_state(plane_state);
 		format = to_sde_format(msm_framebuffer_format(
 				plane_state->fb));
 		if (!format) {
 			SDE_ERROR("invalid format\n");
 			return -EINVAL;
 		} else if (SDE_FORMAT_IS_FSC(format)) {
+			is_dirty = sde_plane_property_is_dirty(
+					plane_state, PLANE_PROP_BG_ALPHA);
+			bg_alpha = sde_plane_get_property(pstate, PLANE_PROP_BG_ALPHA);
+			if (!is_fsc_mode && (!is_dirty || bg_alpha != 0xFF)) {
+				/* return if bg_alpha is not set or not equal to FF
+				 * for fsc to rgb use case
+				 */
+				SDE_ERROR("Invalid params is_dirty: %d\n", is_dirty);
+				return -EINVAL;
+			}
 			fsc_plane_count++;
 		} else {
 			non_fsc_plane_count++;
@@ -5398,10 +5437,25 @@ static int _sde_crtc_check_fsc_planes(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
-	if (fsc_plane_count)
-		cstate->in_fsc_mode = true;
-
 	return 0;
+}
+
+void sde_crtc_state_setup_connectors(struct drm_crtc_state *state, struct drm_device *dev)
+{
+	struct drm_connector_list_iter conn_iter;
+	struct drm_connector *conn;
+	struct sde_crtc_state *cstate = to_sde_crtc_state(state);
+
+	/* identify connectors attached to this crtc */
+	cstate->num_connectors = 0;
+
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter)
+		if ((state->connector_mask & (1 << drm_connector_index(conn)))
+				&& cstate->num_connectors < MAX_CONNECTORS) {
+			cstate->connectors[cstate->num_connectors++] = conn;
+		}
+	drm_connector_list_iter_end(&conn_iter);
 }
 
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
@@ -5410,12 +5464,9 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct drm_device *dev;
 	struct sde_crtc *sde_crtc;
 	struct plane_state *pstates = NULL;
-	struct sde_crtc_state *cstate;
 	struct drm_display_mode *mode;
 	int rc = 0;
 	struct sde_multirect_plane_states *multirect_plane = NULL;
-	struct drm_connector *conn;
-	struct drm_connector_list_iter conn_iter;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -5424,7 +5475,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	dev = crtc->dev;
 	sde_crtc = to_sde_crtc(crtc);
-	cstate = to_sde_crtc_state(state);
 
 	if (!state->enable || !state->active) {
 		SDE_DEBUG("crtc%d -> enable %d, active %d, skip atomic_check\n",
@@ -5450,17 +5500,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	/* force a full mode set if active state changed */
 	if (state->active_changed)
 		state->mode_changed = true;
-
-	/* identify connectors attached to this crtc */
-	cstate->num_connectors = 0;
-
-	drm_connector_list_iter_begin(dev, &conn_iter);
-	drm_for_each_connector_iter(conn, &conn_iter)
-		if ((state->connector_mask & (1 << drm_connector_index(conn)))
-				&& cstate->num_connectors < MAX_CONNECTORS) {
-			cstate->connectors[cstate->num_connectors++] = conn;
-		}
-	drm_connector_list_iter_end(&conn_iter);
 
 	rc = _sde_crtc_check_dest_scaler_data(crtc, state);
 	if (rc) {
@@ -7095,14 +7134,15 @@ void sde_crtc_static_img_control(struct drm_crtc *crtc,
 		return;
 	}
 
-	if (test_bit(SDE_MDP_LLCC_DISP_LR, &sde_kms->catalog->mdp[0].features)) {
-		SDE_DEBUG("Cache mode is directly programmed without state machine\n");
-		return;
-	}
-
 	sde_crtc = to_sde_crtc(crtc);
 	if (sde_crtc->cache_state == state)
 		return;
+
+	if (test_bit(SDE_MDP_LLCC_DISP_LR, &sde_kms->catalog->mdp[0].features)) {
+		SDE_DEBUG("Cache state is directly programmed to frame read\n");
+		state = CACHE_STATE_FRAME_READ;
+		goto end;
+	}
 
 	switch (state) {
 	case CACHE_STATE_NORMAL:
@@ -7127,6 +7167,7 @@ void sde_crtc_static_img_control(struct drm_crtc *crtc,
 		return;
 	}
 
+end:
 	sde_crtc->cache_state = state;
 	drm_atomic_crtc_for_each_plane(plane, crtc)
 		sde_plane_static_img_control(plane, state);

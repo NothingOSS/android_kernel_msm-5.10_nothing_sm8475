@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -605,7 +605,7 @@ static const struct sde_format sde_format_map_tile[] = {
 static const struct sde_format sde_format_map_fsc_tile[] = {
 	PLANAR_RGB_FMT_TILED(C8,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
-		C1_B_Cb, C2_R_Cr, C0_G_Y, 0, 3,
+		C1_B_Cb, C0_G_Y, C2_R_Cr, 0, 3,
 		false, 1, (SDE_FORMAT_FLAG_FSC | SDE_FORMAT_FLAG_COMPRESSED),
 		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_TILED),
 };
@@ -613,7 +613,7 @@ static const struct sde_format sde_format_map_fsc_tile[] = {
 static const struct sde_format sde_format_map_fsc_tile_linear[] = {
 	PLANAR_RGB_FMT_TILED(C8,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
-		C1_B_Cb, C2_R_Cr, C0_G_Y, 0, 3,
+		C1_B_Cb, C0_G_Y, C2_R_Cr, 0, 3,
 		false, 1, SDE_FORMAT_FLAG_FSC,
 		SDE_FETCH_LINEAR, 1, SDE_TILE_HEIGHT_TILED),
 };
@@ -1433,20 +1433,21 @@ int sde_format_validate_fmt(struct msm_kms *kms,
 	while (fmt_list->fourcc_format) {
 		fmt_tmp = sde_get_sde_format_ext(fmt_list->fourcc_format,
 					fmt_list->modifier);
-		if (fmt_tmp
-		  && (fmt_tmp->base.pixel_format == sde_fmt->base.pixel_format)
-		  && (fmt_tmp->fetch_mode == sde_fmt->fetch_mode)) {
+		if (fmt_tmp &&
+			(fmt_tmp->base.pixel_format == sde_fmt->base.pixel_format) &&
+			(fmt_tmp->fetch_mode == sde_fmt->fetch_mode) &&
+			(bitmap_equal(fmt_tmp->flag, sde_fmt->flag,
+			SDE_FORMAT_FLAG_BIT_MAX)) &&
+			(fmt_tmp->unpack_tight == sde_fmt->unpack_tight)) {
 			valid_format = true;
 			break;
 		}
 		++fmt_list;
 	}
 
-	if (!valid_format) {
-		SDE_ERROR("fmt:%d mode:%d not found within the list!\n",
-			sde_fmt->base.pixel_format, sde_fmt->fetch_mode);
+	if (!valid_format)
 		ret = -EINVAL;
-	}
+
 exit:
 	return ret;
 }
