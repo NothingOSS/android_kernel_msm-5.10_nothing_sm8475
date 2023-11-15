@@ -14,6 +14,8 @@
   - Add charge and TP stabiliity information
   - Add more kernel module and devicetree opensource code
 
+- OS 2.0.4
+  - Update display-drivers
 
 # How do I submit patches to Android Common Kernels
 
