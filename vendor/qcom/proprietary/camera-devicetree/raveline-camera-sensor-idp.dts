@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-ravelin.h>
+#include <dt-bindings/clock/qcom,camcc-ravelin.h>
+#include <dt-bindings/interconnect/qcom,ravelin.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+#include "raveline-camera-sensor-idp.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. Raveline IDP";
+	compatible = "qcom,raveline";
+	qcom,msm-id = <568 0x10000>, <602 0x10000>;
+	qcom,board-id = <34 0>, <34 1>, <34 2>, <34 0x600>, <34 0x601>;
+};

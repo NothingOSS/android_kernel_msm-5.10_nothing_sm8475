@@ -500,6 +500,21 @@ config HISI_HIKEY_USB
 	  switching between the dual-role USB-C port and the USB-A host ports
 	  using only one USB controller.
 
+config NT2_HWID
+	tristate "NT2 Hardware ID Driver"
+	help
+	  NT2 Hardware ID Driver.
+
+config NT_SECURE_STATE
+        tristate "NT Secure State Driver"
+        help
+          NT Secure State Driver.
+
+config NT_SLOT_STATE
+        tristate "NT SLOT State Driver"
+        help
+          NT SLOT State Driver.
+
 config KINECTICS_XR_NORDIC
 	tristate "Nordic Misc driver support in XR Reference devices"
 	help
@@ -527,4 +542,5 @@ source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/isl97900_led/Kconfig"
 source "drivers/misc/uacce/Kconfig"
 source "drivers/misc/hdcp/Kconfig"
+source "drivers/misc/haptic_hv/Kconfig"
 endmenu

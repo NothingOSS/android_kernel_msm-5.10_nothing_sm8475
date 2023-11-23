@@ -1,0 +1,10 @@
+#include "cape-audio-qrd.dtsi"
+
+&waipio_snd {
+	qcom,model = "ukee-qrd-snd-card";
+};
+
+&adsp_loader {
+	adsp-fuse-not-supported = <1>;
+	adsp-fw-name = "adsp2.mdt";
+};

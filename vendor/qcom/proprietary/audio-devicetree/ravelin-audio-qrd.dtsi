@@ -1,0 +1,86 @@
+#include "ravelin-audio-overlay.dtsi"
+
+&swr0 {
+	qcom,swr-clock-stop-mode0 = <0>;
+	qcom,swr-num-dev = <1>;
+
+	wsa883x_0221: wsa883x@02170221 {
+		status = "disabled";
+	};
+
+	wsa883x_0222: wsa883x@02170222 {
+		status = "disabled";
+	};
+
+	wsa881x_0213: wsa881x@21170213 {
+		status = "okay";
+	};
+};
+
+&waipio_snd {
+	qcom,model = "ravelin-qrd-snd-card";
+	qcom,wsa881x-support = <1>;
+	qcom,msm-mbhc-usbc-audio-supported = <0>;
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,audio-routing =
+			"AMIC1", "Analog Mic1",
+			"AMIC1", "MIC BIAS1",
+			"AMIC2", "Analog Mic2",
+			"AMIC2", "MIC BIAS2",
+			"AMIC3", "Analog Mic3",
+			"AMIC3", "MIC BIAS3",
+			"TX DMIC0", "Digital Mic0",
+			"TX DMIC0", "MIC BIAS3",
+			"TX DMIC1", "Digital Mic1",
+			"TX DMIC1", "MIC BIAS3",
+			"TX DMIC2", "Digital Mic2",
+			"TX DMIC2", "MIC BIAS1",
+			"TX DMIC3", "Digital Mic3",
+			"TX DMIC3", "MIC BIAS1",
+			"IN1_HPHL", "HPHL_OUT",
+			"IN2_HPHR", "HPHR_OUT",
+			"IN3_AUX", "AUX_OUT",
+			"WSA SRC0_INP", "SRC0",
+			"WSA_TX DEC0_INP", "TX DEC0 MUX",
+			"RX_TX DEC0_INP", "TX DEC0 MUX",
+			"RX_TX DEC1_INP", "TX DEC1 MUX",
+			"RX_TX DEC2_INP", "TX DEC2 MUX",
+			"RX_TX DEC3_INP", "TX DEC3 MUX",
+			"SpkrRight IN", "WSA_SPK1 OUT",
+			"TX SWR_INPUT", "WCD_TX_OUTPUT",
+			"VA SWR_INPUT", "VA_SWR_CLK",
+			"VA SWR_INPUT", "WCD_TX_OUTPUT",
+			"VA_AIF1 CAP", "VA_SWR_CLK",
+			"VA_AIF2 CAP", "VA_SWR_CLK",
+			"VA_AIF3 CAP", "VA_SWR_CLK";
+	asoc-codec = <&stub_codec>, <&lpass_cdc>,
+			<&wcd937x_codec>, <&wsa881x_0213>;
+	asoc-codec-names = "msm-stub-codec.1", "lpass-cdc",
+			"wcd937x_codec", "wsa-codec1";
+	qcom,wsa-max-devs = <1>;
+};
+
+&wcd938x_codec {
+	status = "disabled";
+};
+
+&wcd938x_tx_slave {
+	status = "disabled";
+};
+
+&wcd938x_rx_slave {
+	status = "disabled";
+};
+
+&wcd937x_codec {
+	status = "okay";
+};
+
+&wcd937x_tx_slave {
+	status = "okay";
+};
+
+&wcd937x_rx_slave {
+	status = "okay";
+};

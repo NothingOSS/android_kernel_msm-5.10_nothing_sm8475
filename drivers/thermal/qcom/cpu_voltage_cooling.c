@@ -17,6 +17,7 @@
 
 #define CPU_MAP_CT 2
 #define CC_CDEV_DRIVER "CPU-voltage-cdev"
+#define CPU_PRIME_ISOLATE 7
 
 struct limits_freq_table {
 	unsigned long frequency;
@@ -369,6 +370,21 @@ cc_err_exit:;
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_PRIME_CORE_ONLINE_HELPER)
+static bool cc_defer_online(void)
+{
+	unsigned int cpu;
+	for_each_possible_cpu(cpu) {
+		if (!cpumask_test_cpu(cpu, cpu_online_mask)) {
+			pr_info("CC:cpu %u is not online, Defer\n", cpu);
+			if (CPU_PRIME_ISOLATE == cpu)
+				return true;
+		}
+	}
+	return false;
+}
+#endif
+
 static int cc_cooling_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -379,6 +395,11 @@ static int cc_cooling_probe(struct platform_device *pdev)
 	int cpu_count = 0, first_cluster = 0;
 	int cpu_map[CPU_MAP_CT] = { -1, -1};
 
+#if IS_ENABLED(CONFIG_QCOM_PRIME_CORE_ONLINE_HELPER)
+	/* CC failed when CPU7 offline */
+	if (cc_defer_online())
+		return -EPROBE_DEFER;
+#endif
 	for_each_available_child_of_node(np, subsys_np) {
 		cpu_count = of_count_phandle_with_args(subsys_np, "qcom,cluster0",
 							NULL);

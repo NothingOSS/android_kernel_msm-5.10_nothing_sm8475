@@ -566,6 +566,18 @@ config QCOM_ADSP_SLEEPMON
 	   detects and logs sleep violations from ADSP subsystem. The driver
 	   uses master stats from ADSP subsystem stored in SMEM.
 
+config NOTHING_POWERINFO_RPMH
+	bool "RPMH move to sysfs"
+	default n
+	help
+		This option move d/qcom_sleep_stats to sys/module/soc_sleep_sleep
+
+config NOTHING_POWERINFO_STANDBY
+	bool "powerinfo standby debug"
+	default n
+	help
+		This option open powerinfo standby debug
+
 config QCOM_WCNSS_CTRL
 	tristate "Qualcomm WCNSS control driver"
 	depends on ARCH_QCOM || COMPILE_TEST

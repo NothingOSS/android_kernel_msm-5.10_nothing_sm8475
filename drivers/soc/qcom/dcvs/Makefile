@@ -11,3 +11,4 @@ obj-$(CONFIG_QTI_PMU_SCMI_CLIENT) += pmu_scmi.o
 obj-$(CONFIG_QTI_C1DCVS_SCMI_CLIENT) += c1dcvs_scmi.o
 obj-$(CONFIG_QTI_HW_MEMLAT_SCMI_CLIENT)	+= memlat_scmi.o
 obj-$(CONFIG_QTI_CPUFREQ_STATS_SCMI_CLIENT) += cpufreq_stats_scmi.o
+obj-$(CONFIG_QCOM_PRIME_CORE_ONLINE_HELPER) += cpuprime_online_helper.o

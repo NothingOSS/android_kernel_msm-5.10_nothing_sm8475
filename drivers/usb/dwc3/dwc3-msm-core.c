@@ -4453,6 +4453,11 @@ static inline const char *usb_role_string(enum usb_role role)
 
 static bool dwc3_msm_role_allowed(struct dwc3_msm *mdwc, enum usb_role role)
 {
+//#ifdef NT_CHG
+	dev_err(mdwc->dev, "%s: dr_mode=%s role_requested=%s\n",
+			__func__, usb_dr_modes[mdwc->dr_mode],
+			usb_role_string(role));
+//#endif
 	dev_dbg(mdwc->dev, "%s: dr_mode=%s role_requested=%s\n",
 			__func__, usb_dr_modes[mdwc->dr_mode],
 			usb_role_string(role));
@@ -6144,6 +6149,9 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		atomic_read(&mdwc->dev->power.usage_count));
 
 	if (on) {
+//#ifdef NT_CHG
+		dev_err(mdwc->dev, "%s: turn on gadget\n", __func__);
+//#endif
 		dev_dbg(mdwc->dev, "%s: turn on gadget\n", __func__);
 
 		pm_runtime_get_sync(&mdwc->dwc3->dev);
@@ -6197,6 +6205,9 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 		msm_dwc3_perf_vote_enable(mdwc, true);
 	} else {
+//#ifdef NT_CHG
+		dev_err(mdwc->dev, "%s: turn off gadget\n", __func__);
+//#endif
 		dev_dbg(mdwc->dev, "%s: turn off gadget\n", __func__);
 		msm_dwc3_perf_vote_enable(mdwc, false);
 		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
