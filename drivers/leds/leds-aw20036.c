@@ -128,6 +128,11 @@ static int aw20036_i2c_write_block(struct aw20036 *aw20036,
 		.len = length +1
 	};
 
+	if (aw20036->dev_suspend) {
+		pr_err("%s: ignore 0x%x(%d) when suspend\n", __func__, reg_addr, length);
+		return ret;
+	}
+
 	/* Copy Register Address. */
 	buf[0] = reg_addr;
 
@@ -156,6 +161,11 @@ static int aw20036_i2c_write(struct aw20036 *aw20036,
 	int ret = -1;
 	unsigned char cnt = 0;
 
+	if (aw20036->dev_suspend) {
+		pr_err("%s: ignore 0x%x when suspend\n", __func__, reg_addr);
+		return ret;
+	}
+
 	while (cnt < AW_I2C_RETRIES) {
 		ret =
 		    i2c_smbus_write_byte_data(aw20036->i2c, reg_addr, reg_data);
@@ -177,6 +187,11 @@ static int aw20036_i2c_read(struct aw20036 *aw20036,
 {
 	int ret = -1;
 	unsigned char cnt = 0;
+
+	if (aw20036->dev_suspend) {
+		pr_err("%s: ignore 0x%x when suspend\n", __func__, reg_addr);
+		return ret;
+	}
 
 	while (cnt < AW_I2C_RETRIES) {
 		ret = i2c_smbus_read_byte_data(aw20036->i2c, reg_addr);
@@ -1728,14 +1743,14 @@ static void aw20036_leds_effect_work(struct work_struct *work)
 					/*led4*/
 					brightness_1[9] = aw20036->curr_buf->data[i+4]*aw20036->curr_buf->brightness/MAX_BRIGHTNESS;
 					if(aw20036->stream_mode ==0){
-						pr_info("%s break 0\n", __func__);
+						pr_info("%s break 1-0\n", __func__);
 						break;
 					}
 					aw20036_reg_page_cfg(aw20036, AW20036_REG_PAGE2);
 					aw20036_i2c_write_block(aw20036, 0x00, 13, brightness_1); /*led(0-12)*/
 					aw20036_i2c_write_block(aw20036, 0x0E, 22, brightness_2); /*led(14-35)*/
 					if(aw20036->stream_mode ==0){
-						pr_info("%s break 1\n", __func__);
+						pr_info("%s break 1-1\n", __func__);
 						break;
 					}
 					runtime  = ktime_sub(ktime_get(), start);
@@ -1745,7 +1760,7 @@ static void aw20036_leds_effect_work(struct work_struct *work)
 						usleep_range(delay/1000, delay/1000);
 					}
 					if(aw20036->stream_mode ==0){
-						pr_info("%s break 2\n", __func__);
+						pr_info("%s break 1-2\n", __func__);
 						break;
 					}
 				}
@@ -1768,14 +1783,14 @@ static void aw20036_leds_effect_work(struct work_struct *work)
 					       };
 					}
 					if(aw20036->stream_mode ==0){
-						pr_info("%s break 0\n", __func__);
+						pr_info("%s break 2-0\n", __func__);
 						break;
 					}
 					aw20036_reg_page_cfg(aw20036, AW20036_REG_PAGE2);
 					aw20036_i2c_write_block(aw20036, 0x00, 13, brightness_1); /*led(0-12)*/
 					aw20036_i2c_write_block(aw20036, 0x0E, 22, brightness_2); /*led(14-35)*/
 					if(aw20036->stream_mode ==0){
-						pr_info("%s break 1\n", __func__);
+						pr_info("%s break 2-1\n", __func__);
 						break;
 					}
 					runtime  = ktime_sub(ktime_get(), start);
@@ -1785,12 +1800,12 @@ static void aw20036_leds_effect_work(struct work_struct *work)
 						usleep_range(delay/1000, delay/1000);
 					}
 					if(aw20036->stream_mode ==0){
-						pr_info("%s break 2\n", __func__);
+						pr_info("%s break 2-2\n", __func__);
 						break;
 					}
 				}
 				if((aw20036->curr_buf->length < 495) ||(aw20036->stream_mode ==0)){
-					pr_info("%s break 3\n", __func__);
+					pr_info("%s break 2-3\n", __func__);
 					break;
 				}
 			}
@@ -2023,6 +2038,8 @@ static int aw20036_i2c_probe(struct i2c_client *i2c,
 	aw20036->dev = &i2c->dev;
 	aw20036->i2c = i2c;
 
+	aw20036->dev_suspend = 0;
+
 	i2c_set_clientdata(i2c, aw20036);
 
 	mutex_init(&aw20036->cfg_lock);
@@ -2188,7 +2205,9 @@ static int aw20036_i2c_remove(struct i2c_client *i2c)
 static int aw20036_suspend(struct device *dev)
 {
 	struct aw20036 *aw20036 = dev_get_drvdata(dev);
-	pr_info("%s\n", __func__);
+	pr_info("%s vip %d fact %d always %d (%d)\n", __func__, aw20036->vip_notification,
+		aw20036->factory_test, aw20036->always_on, aw20036->suspend);
+	aw20036->dev_suspend = 1;
 	if((aw20036->vip_notification !=1) && (aw20036->factory_test !=1) && (aw20036->always_on !=1)){
 		pr_info("%s goto suspend\n", __func__);
 		aw20036_hw_off(aw20036);
@@ -2200,7 +2219,8 @@ static int aw20036_suspend(struct device *dev)
 static int aw20036_resume(struct device *dev)
 {
 	struct aw20036 *aw20036 = dev_get_drvdata(dev);
-	pr_info("%s\n", __func__);
+	pr_info("%s (%d)\n", __func__, aw20036->suspend);
+	aw20036->dev_suspend = 0;
 	if(aw20036->suspend == 1){
 		pr_info("%s is suspend\n", __func__);
 		aw20036_hw_reset(aw20036);
