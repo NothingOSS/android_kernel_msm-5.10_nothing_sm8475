@@ -662,6 +662,10 @@
 	rpmh-regulator-smpe3 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		qcom,resource-name = "smpe3";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
 		S3E:
 		pmr735a_s3: regulator-pmr735a-s3 {
 			regulator-name = "pmr735a_s3";
