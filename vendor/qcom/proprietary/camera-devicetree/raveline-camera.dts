@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-ravelin.h>
+#include <dt-bindings/clock/qcom,camcc-ravelin.h>
+#include <dt-bindings/interconnect/qcom,ravelin.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+#include "raveline-camera.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. Raveline v1 SoC";
+	compatible = "qcom,raveline";
+	qcom,msm-id = <568 0x10000>, <602 0x10000>, <581 0x10000>, <582 0x10000>;
+	qcom,board-id = <0 0>, <0 2>, <0 0x600>, <0 0x601>;
+};

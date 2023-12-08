@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "ravelin-audio-idp-wsa-hac.dtsi"
+
+/ {
+    model = "Qualcomm Technologies, Inc. Ravelin IDP WSA with HAC";
+    compatible = "qcom,montague-idp", "qcom,ravelin", "qcom,idp";
+    qcom,msm-id = <568 0x10000>, <602 0x10000>, <581 0x10000>, <582 0x10000>;
+    qcom,board-id = <0x10022 0x7>;
+};
+
