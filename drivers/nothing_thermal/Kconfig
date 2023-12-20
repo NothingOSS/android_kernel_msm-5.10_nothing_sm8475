@@ -1,0 +1,9 @@
+#
+# Generic thermal sysfs drivers configuration
+#
+
+config NOTHING_SIMULATED_NTC
+	  tristate "Simulatd NTC temp driver"
+	  default n
+	  help
+	    Provide three thermal zones (front, frame and back) to get real shell temp.

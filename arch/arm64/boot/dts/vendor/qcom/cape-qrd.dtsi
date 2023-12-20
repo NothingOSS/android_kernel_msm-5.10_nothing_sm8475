@@ -22,10 +22,21 @@
 			linux,can-disable;
 		};
 	};
+
+	goodix_fp@0 {
+		compatible = "goodix,fingerprint";
+		interrupt-parent = <&tlmm>;
+		vdd-supply = <&L9C>;
+		vdd-max-uv = <3300000>;
+		vdd-min-uv = <3300000>;
+		fp-gpio-irq = <&tlmm 40 0x00>;
+		fp-gpio-reset = <&tlmm 41 0x00>;
+		status = "ok";
+	};
 };
 
 &sdhc_2 {
-	status = "ok";
+	status = "disabled";
 	vdd-supply = <&L9C>;
 	qcom,vdd-voltage-level = <2960000 2960000>;
 	qcom,vdd-current-level = <0 800000>;
@@ -129,11 +140,41 @@
 };
 
 &battery_charger {
-	qcom,thermal-mitigation = <11500000 11000000 10500000 10000000 9500000
-				9000000 8500000 8000000 7500000 7000000 6500000
+	qcom,thermal-mitigation = <9000000 8500000 8000000 7500000 7000000 6500000
 				6000000 5500000 5000000 4500000 4000000 3500000
-				3000000 2500000 2000000 1500000 1000000 500000>;
+				3000000 2500000 2400000 2000000 1600000 1500000 1200000 1000000 500000 0>;
 	qcom,wireless-fw-name = "idt9415.bin";
+	#cooling-cells = <2>;
+};
+
+&tlmm {
+	led_pins {
+		led_irq_default: led_irq_default {
+			mux {
+				pins = "gpio60";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio60";
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+
+		led_rst_default: led_rst_default {
+			mux {
+				pins = "gpio44";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio44";
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+	};
 };
 
 &qupv3_se5_i2c {
@@ -171,6 +212,22 @@
 				0x1 0x3 0x3 0x1
 				/* Parameters for DP */
 				0x3 0x3 0x3 0x3>;
+	};
+
+	aw20036_led@3a {
+		compatible = "awinic,aw20036_led";
+		reg = <0x3a>;
+		irq-gpio = <&tlmm 60 0>;
+		reset-gpio = <&tlmm 44 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_irq_default &led_rst_default>;
+		status = "okay";
+		aw20036,led {
+			aw20036,name = "led_strips";
+			aw20036,imax = <1>;
+			aw20036,brightness = <128>;
+			aw20036,max_brightness = <255>;
+		};
 	};
 };
 
@@ -215,40 +272,29 @@
 &qupv3_se4_spi {
 	status = "ok";
 
-	#address-cells = <1>;
-	#size-cells = <0>;
-	qcom,spi-touch-active = "focaltech,fts_ts";
-	qcom,la-vm;
+	goodix-berlin@0 {
+		compatible = "goodix,brl-d";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
 
-	focaltech@0 {
-		compatible = "focaltech,fts_ts";
-		reg = <0x0>;
-		spi-max-frequency = <6000000>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <21 0x2008>;
-		focaltech,reset-gpio = <&tlmm 20 0x00>;
-		focaltech,irq-gpio = <&tlmm 21 0x2008>;
-		focaltech,display-coords = <0 0 1080 2340>;
-		focaltech,max-touch-number = <5>;
-		focaltech,ic-type = <0x3658D488>;
-		focaltech,touch-type = "primary";
+		goodix,avdd-name = "avdd";
+		avdd-supply = <&L3C>;
+		goodix,iovdd-name = "iovdd";
+		iovdd-supply = <&L12C>;
 
-		vdd-supply = <&L3C>;
+		goodix,reset-gpio = <&tlmm 20 0x0>;
+		goodix,irq-gpio = <&tlmm 21 0x2008>;
+		goodix,irq-flags = <2>; /* 1:trigger rising, 2:trigger falling; */
+		goodix,panel-max-x = <1080>;
+		goodix,panel-max-y = <2412>;
+		goodix,panel-max-w = <255>;
 
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_release";
-		pinctrl-0 = <&ts_active>;
-		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-		pinctrl-2 = <&ts_release>;
-
-		focaltech,trusted-touch-mode = "vm_mode";
-		focaltech,touch-environment = "pvm";
-		focaltech,trusted-touch-type = "primary";
-		focaltech,trusted-touch-spi-irq = <754>;
-		focaltech,trusted-touch-io-bases = <0x990000 0x910000>;
-		focaltech,trusted-touch-io-sizes = <0x1000 0x4000>;
-		focaltech,trusted-touch-vm-gpio-list = <&tlmm 16 0 &tlmm 17 0 &tlmm 18 0
-						&tlmm 19 0 &tlmm 20 0 &tlmm 21 0x2008>;
+		/* optional properties */
+		goodix,sleep-enable; /* enter sleep mode */
+		goodix,firmware-name = "goodix_firmware.bin";
+		goodix,config-name = "goodix_cfg_group.bin";
 	};
+
 };
 
 &qupv3_se5_i2c {
@@ -274,6 +320,118 @@
 				0x22 0x07
 				/* Output Voltage Swing to 550mV; default is 450mV */
 				0x64 0x08>;
+	};
+};
+
+
+&pcie1 {
+	status = "disabled";
+};
+
+&qupv3_se18_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	haptic_hv@5A{
+		compatible = "awinic,haptic_hv";
+		reg = <0x5A>;
+		irq-gpio = <&tlmm 51 0>;
+		reset-gpio = <&tlmm 99 0>;
+		f0_pre = < 1700 >;
+		mode = /bits/ 8 < 5 >;
+		f0_cali_percent = /bits/ 8 < 7 >;
+
+		/*************aw8692x***************/
+		aw8692x_gain_bypass = /bits/ 8 < 1 >;
+		aw8692x_cont_drv1_lvl = /bits/ 8 < 0x7F >;
+		aw8692x_cont_lra_vrms = < 1000 >; /* Motor rated voltage, mV */
+		aw8692x_cont_drv1_time = /bits/ 8 < 0x04 >;
+		aw8692x_cont_drv2_time = /bits/ 8 < 0x06 >;
+		aw8692x_cont_wait_num = /bits/ 8 < 0x06 >;
+		aw8692x_cont_brk_time = /bits/ 8 < 0x08 >;
+		aw8692x_cont_track_margin = /bits/ 8 < 0x0F >;
+		aw8692x_brk_bst_md = /bits/ 8 < 0 >;
+		aw8692x_cont_tset = /bits/ 8 < 0x06 >;
+		aw8692x_cont_bemf_set = /bits/ 8 < 0x02 >;
+		aw8692x_cont_bst_brk_gain = /bits/ 8 < 0x05 >;
+		aw8692x_cont_brk_gain = /bits/ 8 < 0x08 >;
+		aw8692x_duration_time = /bits/ 8 < 20 30 60 >;
+		aw8692x_d2s_gain = /bits/ 8 < 0x04 >;
+		aw8692x_trig_config = /bits/ 8 < 0 0 0 1 0 2 0 0
+						 0 0 0 1 0 2 0 0
+						 0 0 0 1 0 2 0 0 >;
+		aw8692x_bst_vol_default = < 9000 >;
+		aw8692x_is_enabled_track_en;
+		/* aw8692x_is_enabled_auto_bst; */
+		/* aw8692x_is_enabled_one_wire; */
+	};
+};
+
+&tlmm {
+	hardware_pins {
+		hardware_pull_up: hardware_pull_up {
+			mux {
+				pins = "gpio87", "gpio88";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio87", "gpio88";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		hardware_pull_down: hardware_pull_down {
+			mux {
+				pins = "gpio87", "gpio88";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio87", "gpio88";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+
+		hardware_no_pull: hardware_no_pull {
+			mux {
+				pins = "gpio87", "gpio88";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio87", "gpio88";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+
+	};
+
+};
+
+&soc {
+        hardware_id {
+		compatible = "nt2,hwid";
+		ver_id0 = <&tlmm 87 0x00>;
+		ver_id1 = <&tlmm 88 0x00>;
+		pinctrl-names = "hardware_up", "hardware_down", "hardware_lpm";
+		pinctrl-0 = <&hardware_pull_up>;
+		pinctrl-1 = <&hardware_pull_down>;
+		pinctrl-2 = <&hardware_no_pull>;
+		status = "okay";
+        };
+
+	slot_state {
+		compatible = "nt,slot_check";
+		uim0_present = <&tlmm 133 0x00>;
+		uim1_present = <&tlmm 137 0x00>;
 	};
 };
 
@@ -322,4 +480,12 @@
 			};
 		};
 	};
+};
+
+&wlan {
+       use-nv-mac;
+};
+
+&S1C {
+	regulator-min-microvolt = <1900000>;
 };

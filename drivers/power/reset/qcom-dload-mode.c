@@ -331,6 +331,11 @@ static int qcom_dload_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, poweroff);
 
+// Let emmc_dload default to QCOM_DOWNLOAD_DEST_EMMC for user.
+	if (poweroff->dload_dest_addr) {
+		set_download_dest(poweroff, QCOM_DOWNLOAD_DEST_EMMC);
+	}
+
 	return 0;
 }
 

@@ -30,10 +30,12 @@
 #include <soc/qcom/pmu_lib.h>
 #include <soc/qcom/qcom_llcc_pmu.h>
 #include <linux/perf/arm_pmu.h>
+#include <soc/qcom/prime_helper.h>
 
 #define MAX_PMU_EVS	QCOM_PMU_MAX_EVS
 #define INVALID_ID	0xFF
 static void __iomem *pmu_base;
+#define CPU_PRIME_ISOLATE	7
 
 struct evctrs_64 {
 	u64 evctrs[MAX_CPUCP_EVT];
@@ -660,6 +662,10 @@ static int qcom_pmu_hotplug_coming_up(unsigned int cpu)
 	spin_unlock_irqrestore(&cpu_data->read_lock, flags);
 out:
 	kfree(attr);
+#if IS_ENABLED(CONFIG_QCOM_PRIME_CORE_ONLINE_HELPER)
+	if (CPU_PRIME_ISOLATE == cpu)
+		prime_helper_trigger();
+#endif
 	return 0;
 }
 
@@ -819,6 +825,23 @@ static void unload_pmu_counters(void)
 	pmu_counters_enabled = false;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_PRIME_CORE_ONLINE_HELPER)
+static bool pmu_defer_keep_events(void)
+{
+	unsigned int cpu;
+	for_each_possible_cpu(cpu) {
+		if (!cpumask_test_cpu(cpu, cpu_online_mask)) {
+			if (CPU_PRIME_ISOLATE == cpu) {
+				/* events data used in cpu7 onine cb */
+				pr_info("qcom-pmu-lib:cpu %u offline, Keep events\n", cpu);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+#endif
+
 static int setup_events(void)
 {
 	struct perf_event_attr *attr = alloc_attr();
@@ -840,7 +863,10 @@ static int setup_events(void)
 			if (ret < 0) {
 				pr_err("event %d not set for cpu %d ret %d\n",
 					event->event_id, cpu, ret);
-				event->event_id = 0;
+#if IS_ENABLED(CONFIG_QCOM_PRIME_CORE_ONLINE_HELPER)
+				if (!pmu_defer_keep_events())
+#endif
+					event->event_id = 0;
 				/*
 				 * Only return error for -EPROBE_DEFER. Clear
 				 * ret for all other cases as it is okay for

@@ -10,6 +10,24 @@
 };
 
 &apps_rsc {
+	rpmh-regulator-ldoi1 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoi1";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 30000>;
+		L1I: pm8010i_l1: regulator-pm8010i-l1 {
+			regulator-name = "pm8010i_l1";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1104000>;
+			regulator-max-microvolt = <1104000>;
+			qcom,init-voltage = <1104000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
 	rpmh-regulator-ldoi2 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		qcom,resource-name = "ldoi2";
@@ -54,6 +72,19 @@
 		};
 	};
 
+	rpmh-regulator-ldoi5 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoi5";
+		qcom,regulator-type = "pmic5-ldo";
+		L5I: pm8010i_l5: regulator-pm8010i-l5 {
+			regulator-name = "pm8010i_l5";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1504000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <1856000>;
+		};
+	};
+
 	rpmh-regulator-ldoi6 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		qcom,resource-name = "ldoi6";
@@ -74,9 +105,9 @@
 		L7I: pm8010i_l7: regulator-pm8010i-l7 {
 			regulator-name = "pm8010i_l7";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2960000>;
+			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2960000>;
-			qcom,init-voltage = <2960000>;
+			qcom,init-voltage = <2800000>;
 		};
 	};
 

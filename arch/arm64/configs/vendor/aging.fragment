@@ -1,0 +1,10 @@
+CONFIG_CMDLINE="kasan.stacktrace=off stack_depot_disable=off kvm-arm.mode=protected cgroup_disable=pressure cgroup.memory=nokmem page_owner=on no_hash_pointers panic_on_taint=0x20"
+CONFIG_DEBUG_FS=y
+CONFIG_DEBUG_KMEMLEAK=y
+CONFIG_DEBUG_KMEMLEAK_AUTO_SCAN=y
+# CONFIG_DEBUG_KMEMLEAK_DEFAULT_OFF is not set
+CONFIG_DEBUG_KMEMLEAK_MEM_POOL_SIZE=16000
+CONFIG_DEBUG_KMEMLEAK_EARLY_LOG_SIZE=4000
+# CONFIG_DEBUG_KMEMLEAK_TEST is not set
+CONFIG_SLUB_DEBUG_ON=y
+CONFIG_PAGE_POISONING=y

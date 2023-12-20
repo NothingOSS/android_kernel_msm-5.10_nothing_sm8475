@@ -51,7 +51,7 @@
 #define CLASS_NAME           "qti-nfc"
 
 //  NFC character device name, this will be in /dev/
-#define NFC_CHAR_DEV_NAME	 "nq-nci"
+#define NFC_CHAR_DEV_NAME	 "pn553"
 
 // NCI packet details
 #define NCI_MSG_CMD                 0x20

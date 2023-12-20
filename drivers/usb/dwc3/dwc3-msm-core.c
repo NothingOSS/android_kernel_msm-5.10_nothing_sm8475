@@ -4453,6 +4453,11 @@ static inline const char *usb_role_string(enum usb_role role)
 
 static bool dwc3_msm_role_allowed(struct dwc3_msm *mdwc, enum usb_role role)
 {
+//#ifdef NT_CHG
+	dev_err(mdwc->dev, "%s: dr_mode=%s role_requested=%s\n",
+			__func__, usb_dr_modes[mdwc->dr_mode],
+			usb_role_string(role));
+//#endif
 	dev_dbg(mdwc->dev, "%s: dr_mode=%s role_requested=%s\n",
 			__func__, usb_dr_modes[mdwc->dr_mode],
 			usb_role_string(role));
@@ -5028,6 +5033,7 @@ static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 static int dwc3_usb_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
+#ifdef CONFIG_DEBUG_FS
 	struct dwc3_msm *mdwc = container_of(this, struct dwc3_msm, panic_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	const struct debugfs_reg32 *dwc3_regs = dwc->regset->regs;
@@ -5052,6 +5058,7 @@ static int dwc3_usb_panic_notifier(struct notifier_block *this,
 		dump_dwc3_regs(qscratch_reg[i].name, qscratch_reg[i].offset + QSCRATCH_REG_OFFSET,
 					dwc3_msm_read_reg(mdwc->base, qscratch_reg[i].offset
 							+ QSCRATCH_REG_OFFSET));
+#endif
 	return NOTIFY_DONE;
 }
 
@@ -5220,6 +5227,7 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 static int dwc3_msm_smmu_fault_handler(struct iommu_domain *domain, struct device *dev,
 					unsigned long iova, int flags, void *data)
 {
+#ifdef CONFIG_DEBUG_FS
 	struct dwc3_msm *mdwc = data;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	const struct debugfs_reg32 *dwc3_regs = dwc->regset->regs;
@@ -5233,6 +5241,7 @@ static int dwc3_msm_smmu_fault_handler(struct iommu_domain *domain, struct devic
 			dump_dwc3_regs(dwc3_regs[i].name, dwc3_regs[i].offset,
 					dwc3_readl(dwc->regs, dwc3_regs[i].offset));
 	}
+#endif
        /*
 	* Let the iommu core know we're not really handling this fault;
 	* we just use it to dump the registers for debugging purposes.
@@ -6144,6 +6153,9 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		atomic_read(&mdwc->dev->power.usage_count));
 
 	if (on) {
+//#ifdef NT_CHG
+		dev_err(mdwc->dev, "%s: turn on gadget\n", __func__);
+//#endif
 		dev_dbg(mdwc->dev, "%s: turn on gadget\n", __func__);
 
 		pm_runtime_get_sync(&mdwc->dwc3->dev);
@@ -6197,6 +6209,9 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 		msm_dwc3_perf_vote_enable(mdwc, true);
 	} else {
+//#ifdef NT_CHG
+		dev_err(mdwc->dev, "%s: turn off gadget\n", __func__);
+//#endif
 		dev_dbg(mdwc->dev, "%s: turn off gadget\n", __func__);
 		msm_dwc3_perf_vote_enable(mdwc, false);
 		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);

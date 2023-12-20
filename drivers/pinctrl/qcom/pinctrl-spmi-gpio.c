@@ -17,6 +17,9 @@
 #include <linux/slab.h>
 #include <linux/spmi.h>
 #include <linux/types.h>
+#include <linux/list.h>
+#include <linux/debugfs.h>
+#include <trace/events/power.h>
 
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
@@ -177,6 +180,10 @@ struct pmic_gpio_state {
 	struct irq_chip irq;
 	u8 usid;
 	u8 pid_base;
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+	struct list_head list;
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
+
 };
 
 static const struct pinconf_generic_params pmic_gpio_bindings[] = {
@@ -188,6 +195,129 @@ static const struct pinconf_generic_params pmic_gpio_bindings[] = {
 };
 
 #ifdef CONFIG_DEBUG_FS
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+static LIST_HEAD(spmi_gpio_list);
+static bool debug_suspend;
+static struct dentry *gpio_debugfs_suspend;
+static DEFINE_MUTEX(gpio_debug_lock);
+static void pmic_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip);
+
+static void gpio_debug_suspend_trace_probe(void *unused,
+					const char *action, int val, bool start)
+{
+	struct pmic_gpio_state *state = NULL;
+	if (start && val > 0 && !strcmp("machine_suspend", action)) {
+		mutex_lock(&gpio_debug_lock);
+		list_for_each_entry(state, &spmi_gpio_list, list) {
+			pr_info("[S2IDLE][PMIC] %s: %d pins\n",
+				state->chip.label, state->chip.ngpio);
+			pmic_gpio_dbg_show(NULL, &state->chip);
+		}
+		mutex_unlock(&gpio_debug_lock);
+	}
+}
+
+static int gpio_debug_suspend_enable_get(void *data, u64 *val)
+{
+	*val = debug_suspend;
+
+	return 0;
+}
+
+static int gpio_debug_suspend_enable_set(void *data, u64 val)
+{
+	int ret;
+
+	val = !!val;
+	if (val == debug_suspend)
+		return 0;
+
+	if (val)
+		ret = register_trace_suspend_resume(
+			gpio_debug_suspend_trace_probe, NULL);
+	else
+		ret = unregister_trace_suspend_resume(
+			gpio_debug_suspend_trace_probe, NULL);
+	if (ret) {
+		pr_err("%s: Failed to %sregister suspend trace callback, ret=%d\n",
+			__func__, val ? "" : "un", ret);
+		return ret;
+	}
+	debug_suspend = val;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(gpio_debug_suspend_enable_fops,
+	gpio_debug_suspend_enable_get, gpio_debug_suspend_enable_set, "%llu\n");
+
+static void msm_pinctrl_s2idle_debug(struct pmic_gpio_state *state, bool init)
+{
+	static struct dentry *rootdir = NULL;
+	int ret = 0;
+
+	if (!init) {
+		debugfs_remove(gpio_debugfs_suspend);
+		if (debug_suspend)
+			unregister_trace_suspend_resume(
+					gpio_debug_suspend_trace_probe, NULL);
+		return;
+	}
+
+	list_add_tail(&state->list, &spmi_gpio_list);
+
+	rootdir = debugfs_lookup("pinctrl", NULL);
+	if (IS_ERR_OR_NULL(rootdir)) {
+		ret = PTR_ERR(rootdir);
+		pr_err("%s: unable to find root pinctrl %s debugfs directory, ret=%d\n",
+			__func__, dev_name(state->dev), ret);
+		return;
+	}
+
+	gpio_debugfs_suspend = debugfs_lookup("pmic_gpio_debug_suspend", rootdir);
+	if (IS_ERR_OR_NULL(gpio_debugfs_suspend)) {
+		ret = PTR_ERR(gpio_debugfs_suspend);
+		pr_info("%s: %s pmic_gpio_debug_suspend creating \n", __func__, dev_name(state->dev));
+		gpio_debugfs_suspend = debugfs_create_file_unsafe("pmic_gpio_debug_suspend",
+						0644, rootdir, NULL,
+						&gpio_debug_suspend_enable_fops);
+
+		dput(rootdir);
+		if (IS_ERR(gpio_debugfs_suspend)) {
+			ret = PTR_ERR(gpio_debugfs_suspend);
+			pr_err("%s: unable to create %s debug_suspend debugfs directory, ret=%d\n",
+				__func__, dev_name(state->dev), ret);
+		}
+	} else {
+		pr_info("%s: %s pmic_gpio_debug_suspend already created \n", __func__, dev_name(state->dev));
+		dput(gpio_debugfs_suspend);
+		dput(rootdir);
+	}
+}
+
+static void s2idle_gpio_dump(const char *fmt, ...)
+{
+	va_list args;
+	static unsigned char tmp[150];
+	static unsigned char *s = tmp;
+	unsigned char *e = tmp + 150;
+	int n = 0;
+	if (s >= e){
+		pr_info("[S2IDLE][GPIO]: oem_info error.\n");
+		return;
+	}
+	va_start(args, fmt);
+	n = vsnprintf(s, INT_MAX,fmt, args);
+	va_end(args);
+	if (n >= 0)
+		s += n;
+	if (fmt[0] == '\n'){
+		pr_info("%s", tmp);
+		s = tmp;
+		return;
+	}
+}
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
+
 static const struct pin_config_item pmic_conf_items[ARRAY_SIZE(pmic_gpio_bindings)] = {
 	PCONFDUMP(PMIC_GPIO_CONF_PULL_UP,  "pull up strength", NULL, true),
 	PCONFDUMP(PMIC_GPIO_CONF_STRENGTH, "drive-strength", NULL, true),
@@ -647,12 +777,21 @@ static void pmic_gpio_config_dbg_show(struct pinctrl_dev *pctldev,
 	};
 
 	pad = pctldev->desc->pins[pin].drv_data;
-
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+	if (!s)
+		s2idle_gpio_dump(" gpio%-2d:", pin + PMIC_GPIO_PHYSICAL_OFFSET);
+	else
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 	seq_printf(s, " gpio%-2d:", pin + PMIC_GPIO_PHYSICAL_OFFSET);
 
 	val = pmic_gpio_read(state, pad, PMIC_GPIO_REG_EN_CTL);
 
 	if (val < 0 || !(val >> PMIC_GPIO_REG_MASTER_EN_SHIFT)) {
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+		if (!s)
+			s2idle_gpio_dump(" ---");
+		else
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 		seq_puts(s, " ---");
 	} else {
 		if (pad->input_enabled) {
@@ -672,12 +811,31 @@ static void pmic_gpio_config_dbg_show(struct pinctrl_dev *pctldev,
 				pad->function >= PMIC_GPIO_FUNC_INDEX_FUNC3)
 			function += PMIC_GPIO_FUNC_INDEX_DTEST1 -
 				PMIC_GPIO_FUNC_INDEX_FUNC3;
-
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+		if (s) {
+			if (pad->analog_pass)
+				seq_puts(s, " analog-pass");
+			else
+				seq_printf(s, " %-4s",
+					pad->output_enabled ? "out" : "in");
+		} else {
+			if (pad->analog_pass)
+				s2idle_gpio_dump(" analog-pass");
+			else
+				s2idle_gpio_dump(" %-4s",
+					pad->output_enabled ? "out" : "in");
+		}
+#else /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 		if (pad->analog_pass)
 			seq_puts(s, " analog-pass");
 		else
 			seq_printf(s, " %-4s",
 					pad->output_enabled ? "out" : "in");
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
+
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+		if (s) {
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 		seq_printf(s, " %-4s", pad->out_value ? "high" : "low");
 		seq_printf(s, " %-7s", pmic_gpio_functions[function]);
 		seq_printf(s, " vin-%d", pad->power_source);
@@ -686,6 +844,18 @@ static void pmic_gpio_config_dbg_show(struct pinctrl_dev *pctldev,
 		seq_printf(s, " %-7s", strengths[pad->strength]);
 		seq_printf(s, " atest-%d", pad->atest);
 		seq_printf(s, " dtest-%d", pad->dtest_buffer);
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+		} else {
+			s2idle_gpio_dump(" %-4s", pad->out_value ? "high" : "low");
+			s2idle_gpio_dump(" %-7s", pmic_gpio_functions[function]);
+			s2idle_gpio_dump(" vin-%d", pad->power_source);
+			s2idle_gpio_dump(" %-27s", biases[pad->pullup]);
+			s2idle_gpio_dump(" %-10s", buffer_types[pad->buffer_type]);
+			s2idle_gpio_dump(" %-7s", strengths[pad->strength]);
+			s2idle_gpio_dump(" atest-%d", pad->atest);
+			s2idle_gpio_dump(" dtest-%d", pad->dtest_buffer);
+		}
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 	}
 }
 
@@ -769,7 +939,13 @@ static void pmic_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 
 	for (i = 0; i < chip->ngpio; i++) {
 		pmic_gpio_config_dbg_show(state->ctrl, s, i);
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+		if (!s)
+			s2idle_gpio_dump("\n");
+		else
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 		seq_puts(s, "\n");
+
 	}
 }
 
@@ -1137,6 +1313,9 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 		}
 	}
 
+#ifdef CONFIG_PINCTRL_MSM_S2IDLE_DUMP
+	msm_pinctrl_s2idle_debug(state, true);
+#endif  /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 	return 0;
 
 err_range:
@@ -1147,6 +1326,9 @@ err_range:
 static int pmic_gpio_remove(struct platform_device *pdev)
 {
 	struct pmic_gpio_state *state = platform_get_drvdata(pdev);
+#ifdef CONFIG_PINCTRL_MSM_S2IDLE_DUMP
+	msm_pinctrl_s2idle_debug(state, false);
+#endif  /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 
 	gpiochip_remove(&state->chip);
 	return 0;

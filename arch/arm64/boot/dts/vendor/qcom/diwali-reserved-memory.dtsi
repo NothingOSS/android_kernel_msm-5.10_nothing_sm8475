@@ -124,11 +124,6 @@
 		reg = <0x0 0xa6e00000 0x0 0x40000>;
 	};
 
-	global_sync_mem: global_sync_region@a6f00000 {
-		no-map;
-		reg = <0x0 0xa6f00000 0x0 0x100000>;
-	};
-
 	cpusys_vm_mem: cpusys_vm_region@e0600000 {
 		no-map;
 		reg = <0x0 0xe0600000 0x0 0x400000>;

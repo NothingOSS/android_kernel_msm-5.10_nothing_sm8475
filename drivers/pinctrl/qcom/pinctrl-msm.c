@@ -26,6 +26,8 @@
 #include <linux/soc/qcom/irq.h>
 #include <linux/bitmap.h>
 #include <linux/sizes.h>
+#include <linux/debugfs.h>
+#include <trace/events/power.h>
 
 #include "../core.h"
 #include "../pinconf.h"
@@ -663,6 +665,115 @@ static void msm_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/seq_file.h>
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+
+static bool debug_suspend;
+static struct dentry *gpio_debugfs_suspend;
+static DEFINE_MUTEX(gpio_debug_lock);
+static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip);
+
+static void gpio_debug_suspend_trace_probe(void *unused,
+					const char *action, int val, bool start)
+{
+	struct gpio_chip chip = msm_pinctrl_data->chip;
+	if (start && val > 0 && !strcmp("machine_suspend", action)) {
+		mutex_lock(&gpio_debug_lock);
+		pr_info("[S2IDLE][GPIO] %s: %d pins\n",
+			chip.label, msm_pinctrl_data->soc->npins);
+		msm_gpio_dbg_show(NULL, &chip);
+		mutex_unlock(&gpio_debug_lock);
+	}
+}
+
+static int gpio_debug_suspend_enable_get(void *data, u64 *val)
+{
+	*val = debug_suspend;
+
+	return 0;
+}
+
+static int gpio_debug_suspend_enable_set(void *data, u64 val)
+{
+	int ret;
+
+	val = !!val;
+	if (val == debug_suspend)
+		return 0;
+
+	if (val)
+		ret = register_trace_suspend_resume(
+			gpio_debug_suspend_trace_probe, NULL);
+	else
+		ret = unregister_trace_suspend_resume(
+			gpio_debug_suspend_trace_probe, NULL);
+	if (ret) {
+		pr_err("%s: Failed to %sregister suspend trace callback, ret=%d\n",
+			__func__, val ? "" : "un", ret);
+		return ret;
+	}
+	debug_suspend = val;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(gpio_debug_suspend_enable_fops,
+	gpio_debug_suspend_enable_get, gpio_debug_suspend_enable_set, "%llu\n");
+
+static void msm_pinctrl_s2idle_debug(struct platform_device *pdev, bool init)
+{
+	static struct dentry *rootdir = NULL;
+	int ret = 0;
+
+	if (!init) {
+		debugfs_remove(gpio_debugfs_suspend);
+		if (debug_suspend)
+			unregister_trace_suspend_resume(
+					gpio_debug_suspend_trace_probe, NULL);
+		return;
+	}
+
+	rootdir = debugfs_lookup("pinctrl", NULL);
+	if (IS_ERR_OR_NULL(rootdir)) {
+		ret = PTR_ERR(rootdir);
+		pr_err("%s: unable to find root pinctrl %s debugfs directory, ret=%d\n",
+			__func__, dev_name(&pdev->dev), ret);
+		return;
+	}
+
+	gpio_debugfs_suspend = debugfs_create_file_unsafe("tlmm_debug_suspend",
+						0644, rootdir, NULL,
+						&gpio_debug_suspend_enable_fops);
+
+	dput(rootdir);
+	if (IS_ERR(gpio_debugfs_suspend)) {
+		ret = PTR_ERR(gpio_debugfs_suspend);
+		pr_err("%s: unable to create %s debug_suspend debugfs directory, ret=%d\n",
+			__func__, dev_name(&pdev->dev), ret);
+	}
+}
+
+static void s2idle_gpio_dump(const char *fmt, ...)
+{
+	va_list args;
+	static unsigned char tmp[150];
+	static unsigned char *s = tmp;
+	unsigned char *e = tmp + 150;
+	int n = 0;
+	if (s >= e){
+		pr_info("[S2IDLE][GPIO]: oem_info error.\n");
+		return;
+	}
+	va_start(args, fmt);
+	n = vsnprintf(s, INT_MAX,fmt, args);
+	va_end(args);
+	if (n >= 0)
+		s += n;
+	if (fmt[0] == '\n'){
+		pr_info("%s", tmp);
+		s = tmp;
+		return;
+	}
+}
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 
 static void msm_gpio_dbg_show_one(struct seq_file *s,
 				  struct pinctrl_dev *pctldev,
@@ -708,7 +819,9 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 		val = !!(io_reg & BIT(g->out_bit));
 	else
 		val = !!(io_reg & BIT(g->in_bit));
-
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+	if (s){
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 	seq_printf(s, " %-8s: %-3s", g->name, is_out ? "out" : "in");
 	seq_printf(s, " %-4s func%d", val ? "high" : "low", func);
 	seq_printf(s, " %dmA", msm_regval_to_drive(drive));
@@ -717,6 +830,18 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	else
 		seq_printf(s, " %s", pulls_keeper[pull]);
 	seq_puts(s, "\n");
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+	} else {
+		s2idle_gpio_dump(" %-8s: %-3s", g->name, is_out ? "out" : "in");
+		s2idle_gpio_dump(" %-4s func%d", val ? "high" : "low", func);
+		s2idle_gpio_dump(" %dmA", msm_regval_to_drive(drive));
+		if (pctrl->soc->pull_no_keeper)
+				s2idle_gpio_dump(" %s", pulls_no_keeper[pull]);
+		else
+				s2idle_gpio_dump(" %s", pulls_keeper[pull]);
+		s2idle_gpio_dump("\n");
+	}
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 }
 
 static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
@@ -1668,6 +1793,10 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 
 	platform_set_drvdata(pdev, pctrl);
 
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+	msm_pinctrl_s2idle_debug(pdev, true);
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
+
 	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
 
 	return 0;
@@ -1677,6 +1806,10 @@ EXPORT_SYMBOL(msm_pinctrl_probe);
 int msm_pinctrl_remove(struct platform_device *pdev)
 {
 	struct msm_pinctrl *pctrl = platform_get_drvdata(pdev);
+
+#if IS_ENABLED(CONFIG_PINCTRL_MSM_S2IDLE_DUMP)
+	msm_pinctrl_s2idle_debug(pdev, false);
+#endif /* CONFIG_PINCTRL_MSM_S2IDLE_DUMP */
 
 	gpiochip_remove(&pctrl->chip);
 

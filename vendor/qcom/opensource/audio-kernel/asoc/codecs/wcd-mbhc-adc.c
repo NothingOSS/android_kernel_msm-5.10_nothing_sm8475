@@ -22,6 +22,7 @@
 #include "wcd-mbhc-adc.h"
 #include <asoc/wcd-mbhc-v2.h>
 #include <asoc/pdata.h>
+#include <linux/soc/qcom/fsa4480-i2c.h>
 
 #define WCD_MBHC_ADC_HS_THRESHOLD_MV    1700
 #define WCD_MBHC_ADC_HPH_THRESHOLD_MV   75
@@ -865,6 +866,11 @@ correct_plug_type:
 							WCD_MBHC_SPL_HS_CNT) ?
 							"special ":""));
 					goto report;
+				}
+				if ((is_dio4480() || is_was4780()) && (plug_type == MBHC_PLUG_TYPE_HEADSET ||
+						plug_type == MBHC_PLUG_TYPE_HEADPHONE)) {
+					pr_info("%s: use audio-switch's auto-detection, break 3s loop\n", __func__);
+					break;
 				}
 			}
 			wrk_complete = false;

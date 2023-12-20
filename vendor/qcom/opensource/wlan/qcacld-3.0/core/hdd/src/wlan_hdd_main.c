@@ -17797,6 +17797,23 @@ static ssize_t wlan_hdd_state_ctrl_param_write(struct file *filp,
 		return -EINVAL;
 	}
 
+	{//scope
+		static const char wlan_logon_str[] = "FW1";
+		static const char wlan_logoff_str[] = "FW0";
+		if (strncmp(buf, wlan_logon_str, strlen(wlan_logon_str)) == 0) {
+			struct hdd_context *hdd_ctx_tmp = cds_get_context(QDF_MODULE_ID_HDD);
+			if (hdd_ctx_tmp) pld_set_fw_log_mode(hdd_ctx_tmp->parent_dev, 1);
+			hdd_info("Wifi fw log on from UI\n");
+			goto exit;
+		}
+		if (strncmp(buf, wlan_logoff_str, strlen(wlan_logoff_str)) == 0) {
+			struct hdd_context *hdd_ctx_tmp = cds_get_context(QDF_MODULE_ID_HDD);
+			if (hdd_ctx_tmp) pld_set_fw_log_mode(hdd_ctx_tmp->parent_dev, 0);
+			hdd_info("Wifi fw log off from UI\n");
+			goto exit;
+		}
+	}//scope
+
 	if (strncmp(buf, wlan_off_str, strlen(wlan_off_str)) == 0) {
 		hdd_info("Wifi turning off from UI\n");
 		hdd_inform_wifi_off();

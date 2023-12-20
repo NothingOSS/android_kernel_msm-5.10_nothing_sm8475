@@ -14,6 +14,10 @@
 #include "ufshcd.h"
 #include "unipro.h"
 
+#ifdef CONFIG_UFSFEATURE
+#include "ufsfeature.h"
+#endif
+
 #define MAX_UFS_QCOM_HOSTS	2
 #define MAX_U32                 (~(u32)0)
 #define MPHY_TX_FSM_STATE       0x41
@@ -231,6 +235,40 @@ enum ufs_qcom_phy_init_type {
  * Enable this quirk to give it an additional 100us.
  */
 #define UFS_DEVICE_QUIRK_PA_HIBER8TIME          (1 << 15)
+
+/* manual gc */
+struct ufs_manual_gc {
+        int state;
+        bool hagc_support;
+        struct hrtimer hrtimer;
+        unsigned long delay_ms;
+        struct work_struct hibern8_work;
+        struct workqueue_struct *mgc_workq;
+};
+
+#define UFSHCD_MANUAL_GC_HOLD_HIBERN8           10000    /* 10 seconds */
+#define UFSHCD_MANUAL_GC_HOLD_HIBERN8_MAX       10000
+#define UFSHCD_MANUAL_GC_HOLD_HIBERN8_MIN       2000
+
+#define QUERY_ATTR_IDN_MANUAL_GC_CONT           0x12
+#define QUERY_ATTR_IDN_MANUAL_GC_STATUS         0x13
+
+enum {
+        MANUAL_GC_OFF = 0,
+        MANUAL_GC_ON,
+        MANUAL_GC_DISABLE,
+        MANUAL_GC_ENABLE,
+        MANUAL_GC_MAX,
+};
+
+enum {
+        MANUAL_GC_STATUS_CLEAN = 0,
+        MANUAL_GC_STATUS_PAUSE,
+        MANUAL_GC_STATUS_DIRTY,
+        MANUAL_GC_STATUS_MAX,
+};
+
+extern void init_manual_gc(struct ufs_hba *hba);
 
 /*
  * Some ufs device vendors need a different TSync length.
@@ -454,6 +492,8 @@ struct ufs_qcom_host {
 	void *ufs_ipc_log_ctx;
 	bool dbg_en;
 	struct nvmem_cell *nvmem_cell;
+	/* manual_gc */
+	struct ufs_manual_gc manual_gc;
 
 	/* Multi level clk scaling Support */
 	bool ml_scale_sup;
@@ -483,6 +523,9 @@ struct ufs_qcom_host {
 	cpumask_t perf_mask;
 	cpumask_t def_mask;
 	bool irq_affinity_support;
+#if defined(CONFIG_UFSFEATURE)
+	struct ufsf_feature ufsf;
+#endif
 };
 
 static inline u32
@@ -598,6 +641,15 @@ struct ufs_ioctl_query_data {
 	 */
 	__u8 buffer[0];
 };
+
+#if defined(CONFIG_UFSFEATURE)
+static inline struct ufsf_feature *ufs_qcom_get_ufsf(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return &host->ufsf;
+}
+#endif
 
 /* ufs-qcom-ice.c */
 

@@ -331,3 +331,17 @@
 		};
 	};
 };
+
+&soc {
+    shell_front {
+        compatible = "nothing,simulated-ntc";
+    };
+
+    shell_frame {
+        compatible = "nothing,simulated-ntc";
+    };
+
+    shell_back {
+        compatible = "nothing,simulated-ntc";
+    };
+};

@@ -7,7 +7,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 
-#include "cape-camera-sensor-qrd.dtsi"
+#include "agenda-camera-sensor.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. Cape QRD";
 	compatible = "qcom,cape", "qcom,capep";

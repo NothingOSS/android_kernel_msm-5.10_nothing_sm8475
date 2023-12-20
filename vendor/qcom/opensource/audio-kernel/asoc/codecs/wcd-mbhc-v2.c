@@ -997,6 +997,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) &&
 	    detection_type) {
+		if (is_dio4480() || is_was4780()) {
+			pr_info("%s: mbhc detect plug in, sleep 100ms\n", __func__);
+			msleep(100);
+		}
 
 		/* If moisture is present, then enable polling, disable
 		 * moisture detection and wait for interrupt
@@ -1098,6 +1102,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		extcon_set_state_sync(mbhc->extdev, extdev_type, 0);
 
 		if (mbhc->mbhc_cfg->enable_usbc_analog) {
+			if (is_dio4480() || is_was4780()) {
+				pr_info("%s: plug out, sleep 900ms\n", __func__);
+				msleep(900);
+			}
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 0);
 			if (mbhc->mbhc_cb->clk_setup)
 				mbhc->mbhc_cb->clk_setup(

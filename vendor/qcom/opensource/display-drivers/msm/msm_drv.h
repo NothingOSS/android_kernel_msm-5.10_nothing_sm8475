@@ -235,6 +235,8 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_AVR_STEP,
 	CONNECTOR_PROP_DSC_MODE,
 	CONNECTOR_PROP_WB_FSC_MODE,
+//Hansel.Han@Display, add for fingerprint hbm set @{
+	CONNECTOR_PROP_FINGER_FLAG,
 
 	/* total # of properties */
 	CONNECTOR_PROP_COUNT

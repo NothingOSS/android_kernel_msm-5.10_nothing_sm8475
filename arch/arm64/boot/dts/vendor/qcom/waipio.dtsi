@@ -29,15 +29,6 @@
 
 	reserved_memory: reserved-memory { };
 
-	mem-offline {
-		compatible = "qcom,mem-offline";
-		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
-				<0x1 0xc0000000 0x0 0x80000000>,
-				<0x2 0xc0000000 0x1 0x40000000>;
-		granule = <512>;
-		mboxes = <&qmp_aop 0>;
-	};
-
 	aliases: aliases {
 		serial0 = &qupv3_se7_2uart;
 		hsuart0 = &qupv3_se20_4uart;
@@ -409,15 +400,17 @@
 		reg = <0x0 0x80c00000 0x0 0x4600000>;
 	};
 
-	video_mem: video_region@85700000 {
+	/* BSP Audio enlarge adsp mem size-7M for add voice-lvve algorithm, 2022.11.24, begin */
+	video_mem: video_region@9FD00000 {
 		no-map;
-		reg = <0x0 0x85700000 0x0 0x700000>;
+		reg = <0x0 0x9FD00000 0x0 0x700000>;
 	};
 
-	adsp_mem: adsp_region@85e00000 {
+	adsp_mem: adsp_region@85700000 {
 		no-map;
-		reg = <0x0 0x85e00000 0x0 0x2100000>;
+		reg = <0x0 0x85700000 0x0 0x2800000>;
 	};
+	/* BSP Audio enlarge adsp mem size-7M for add voice-lvve algorithm, 2022.11.24, end */
 
 	slpi_mem: slpi_region@88000000 {
 		no-map;
@@ -486,33 +479,9 @@
 		reg = <0x0 0xa6f00000 0x0 0x100000>;
 	};
 
-	/* uefi region can be reused by apps */
-
-	/* Linux kernel image is loaded at 0xa0000000 */
-
-	oem_vm_mem: oem_vm_region@bb000000 {
-		no-map;
-		reg = <0x0 0xbb000000 0x0 0x5000000>;
-	};
-
-	qheebsp_reserved_mem: qheebsp_reserved_region@e0000000 {
-		no-map;
-		reg = <0x0 0xe0000000 0x0 0x600000>;
-	};
-
 	cpusys_vm_mem: cpusys_vm_region@e0600000 {
 		no-map;
 		reg = <0x0 0xe0600000 0x0 0x400000>;
-	};
-
-	hyp_reserved_mem: hyp_reserved_region@e0a00000 {
-		no-map;
-		reg = <0x0 0xe0a00000 0x0 0x100000>;
-	};
-
-	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
-		no-map;
-		reg = <0x0 0xe0b00000 0x0 0x4af3000>;
 	};
 
 	trust_ui_vm_qrtr: trust_ui_vm_qrtr@e55f3000 {
@@ -1230,17 +1199,6 @@
 		};
 	};
 
-	qcom,guestvm_loader@e0b00000 {
-		compatible = "qcom,guestvm-loader";
-		qcom,pas-id = <28>;
-		qcom,isolate-cpus;
-		qcom,vmid = <45>;
-		qcom,firmware-name = "trustedvm";
-		qcom,reserved-cpus = <0x5>, <0x6>;
-		qcom,unisolate-timeout-ms = <12000>;
-		memory-region = <&trust_ui_vm_mem>;
-	};
-
 	qcom,guestvm_loader@e0600000 {
 		compatible = "qcom,guestvm-loader";
 		qcom,pas-id = <35>;
@@ -1253,14 +1211,6 @@
 		compatible = "qcom,tlmm-vm-mem-access";
 		qcom,master;
 		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388 317 318 319 320 321 322>;
-	};
-
-	qcom,gh_vm_loader_sec@e0b00000 {
-		compatible = "qcom,gh-vm-loader-sec";
-		qcom,pas-id = <28>;
-		qcom,vmid = <45>;
-		qcom,firmware-name = "trustedvm";
-		memory-region = <&trust_ui_vm_mem>;
 	};
 
 	qcom,gh_vm_loader_sec@e0600000 {

@@ -92,18 +92,43 @@
 };
 
 &sde_dsi {
-	qcom,dsi-default-panel = <&dsi_r66451_amoled_144hz_cmd_cphy>;
+	vddio-supply = <&L12C>;
+	vdd-supply = <&L13C>;
+	qcom,dsi-default-panel = <&dsi_nt37705_visionox_amoled_120hz_cmd>;
+};
+
+&dsi_nt37705_visionox_amoled_120hz_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_4_pwr_supply_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <10>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-hbm-level = <4080>;
+	qcom,mdss-brightness-max-level = <4095>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_rm692e5_visionox_amoled_120hz_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_4_pwr_supply_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <10>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <4095>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
 };
 
 &qupv3_se4_spi {
-	focaltech@0 {
+	goodix-berlin@0 {
 		panel = <&dsi_r66451_amoled_144hz_cmd_cphy
 			&dsi_r66451_amoled_144hz_video_cphy
 			&dsi_r66451_amoled_video_cphy
 			&dsi_r66451_amoled_cmd_cphy
 			&dsi_r66451_amoled_120hz_cmd_cphy
 			&dsi_r66451_amoled_90hz_cmd_cphy_nodsc
-			&dsi_r66451_amoled_90hz_video_cphy_nodsc>;
+			&dsi_r66451_amoled_90hz_video_cphy_nodsc
+			&dsi_rm692e5_visionox_amoled_120hz_cmd
+			&dsi_nt37705_visionox_amoled_120hz_cmd>;
 	};
 };
 
@@ -120,3 +145,11 @@
 		};
 	};
 };
+
+&soc {
+       goodix_fp@0 {
+               panel = <&dsi_rm692e5_visionox_amoled_120hz_cmd
+                        &dsi_nt37705_visionox_amoled_120hz_cmd>;
+       };
+};
+
