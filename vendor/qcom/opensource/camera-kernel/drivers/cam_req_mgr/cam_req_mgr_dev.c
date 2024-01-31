@@ -206,6 +206,7 @@ static int cam_req_mgr_close(struct file *filep)
 
 	list_for_each_entry(csd, &cam_req_mgr_ordered_sd_list, list) {
 		sd = &csd->sd;
+		CAM_DBG(CAM_CRM, "subdev close for device:%s,flags:%d",sd->name,sd->flags);
 		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
 			continue;
 		if (sd->internal_ops) {

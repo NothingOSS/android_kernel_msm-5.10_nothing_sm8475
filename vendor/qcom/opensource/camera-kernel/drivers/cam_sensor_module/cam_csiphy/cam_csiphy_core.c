@@ -1318,12 +1318,17 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 	struct cam_hw_soc_info *soc_info;
 	struct csiphy_reg_parms_t *csiphy_reg;
 	int32_t i = 0;
+    CAM_DBG(CAM_CSIPHY, "csiphy shutdown E: state:%d, acquire_count:%u, start_dev_count:%u",
+            csiphy_dev->csiphy_state, csiphy_dev->acquire_count, csiphy_dev->start_dev_count);
 
-	if (csiphy_dev->csiphy_state == CAM_CSIPHY_INIT)
-		return;
+    if (csiphy_dev->start_dev_count == 0)
+    {
+		if (csiphy_dev->csiphy_state == CAM_CSIPHY_INIT)
+			return;
 
-	if (!csiphy_dev->acquire_count)
-		return;
+		if (!csiphy_dev->acquire_count)
+			return;
+	}
 
 	if (csiphy_dev->acquire_count >= CSIPHY_MAX_INSTANCES_PER_PHY) {
 		CAM_WARN(CAM_CSIPHY, "acquire count is invalid: %u",
@@ -1334,7 +1339,7 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 
 	csiphy_reg = &csiphy_dev->ctrl_reg->csiphy_reg;
 
-	if (csiphy_dev->csiphy_state == CAM_CSIPHY_START) {
+	if (csiphy_dev->csiphy_state == CAM_CSIPHY_START || csiphy_dev->start_dev_count != 0) {
 		soc_info = &csiphy_dev->soc_info;
 
 		for (i = 0; i < csiphy_dev->acquire_count; i++) {
@@ -1380,6 +1385,7 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 	csiphy_dev->acquire_count = 0;
 	csiphy_dev->start_dev_count = 0;
 	csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
+    CAM_DBG(CAM_CSIPHY, "csiphy shutdown X: state:%d, acquire_count:%u,", csiphy_dev->csiphy_state, csiphy_dev->acquire_count);
 }
 
 static int32_t cam_csiphy_external_cmd(struct csiphy_device *csiphy_dev,
@@ -2353,6 +2359,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				cam_csiphy_reg_dump(&csiphy_dev->soc_info);
 
 			csiphy_dev->start_dev_count++;
+            csiphy_dev->csiphy_state = CAM_CSIPHY_START;
 
 			CAM_INFO(CAM_CSIPHY,
 				"CAM_START_PHYDEV: %d, Type: %s, dev_cnt: %u, slot: %d, combo: %u, cphy+dphy: %u, sec_mode: %d, Datarate: %llu, Settletime: %llu",
