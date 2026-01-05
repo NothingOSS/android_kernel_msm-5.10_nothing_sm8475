@@ -275,7 +275,7 @@ static int goodix_fw_update_reset(int delay)
 	return hw_ops->reset(goodix_fw_update_ctrl.core_data, delay);
 }
 
-static int get_fw_version_info(struct goodix_fw_version *fw_version)
+int get_fw_version_info(struct goodix_fw_version *fw_version)
 {
 	struct goodix_ts_hw_ops *hw_ops =
 		goodix_fw_update_ctrl.core_data->hw_ops;
@@ -367,7 +367,7 @@ static int goodix_parse_firmware(struct firmware_data *fw_data)
 
 	if (fw_summary->subsys_num > FW_SUBSYS_MAX_NUM) {
 		ts_err("Bad firmware, invalid subsys num: %d",
-			fw_summary->subsys_num);
+		       fw_summary->subsys_num);
 		r = -EINVAL;
 		goto err_size;
 	}
@@ -380,10 +380,10 @@ static int goodix_parse_firmware(struct firmware_data *fw_data)
 
 		fw_summary->subsys[i].type = firmware->data[info_offset];
 		fw_summary->subsys[i].size =
-			le32_to_cpup((__le32 *)&firmware->data[info_offset + 1]);
+		    le32_to_cpup((__le32 *)&firmware->data[info_offset + 1]);
 
 		fw_summary->subsys[i].flash_addr =
-			le32_to_cpup((__le32 *)&firmware->data[info_offset + 5]);
+		    le32_to_cpup((__le32 *)&firmware->data[info_offset + 5]);
 		if (fw_offset > firmware->size) {
 			ts_err("Sybsys offset exceed Firmware size");
 			goto err_size;
@@ -639,7 +639,8 @@ static int goodix_update_prepare(struct fw_update_ctrl *fwu_ctrl)
 	ts_info("Success hold CPU");
 
 	/* enable misctl clock */
-	if (fwu_ctrl->core_data->bus->ic_type == IC_TYPE_BERLIN_D)
+	if (fwu_ctrl->core_data->bus->ic_type == IC_TYPE_BERLIN_D ||
+			fwu_ctrl->core_data->bus->ic_type == IC_TYPE_NOTTINGHAM)
 		goodix_reg_write(misctl_reg, (u8 *)&enable_misctl_val, 4);
 	else
 		goodix_reg_write(misctl_reg, (u8 *)&enable_misctl_val, 1);
@@ -785,7 +786,7 @@ static int goodix_flash_package(u8 subsys_type, u8 *pkg,
 
 		ret = goodix_send_flash_cmd(&flash_cmd);
 		if (!ret) {
-			ts_info("success write package to 0x%x, len %d",
+			ts_info("success write package to 0x%05X, len %d",
 				flash_addr, pkg_len - 4);
 			return 0;
 		}
@@ -829,7 +830,7 @@ static int goodix_flash_subsystem(struct fw_subsys_info *subsys)
 	while (total_size > 0) {
 		data_size = total_size > ISP_MAX_BUFFERSIZE ?
 				ISP_MAX_BUFFERSIZE : total_size;
-		ts_info("Flash firmware to %08x,size:%u bytes",
+		ts_info("Flash firmware to 0x%05X,size:%u bytes",
 			subsys_base_addr + offset, data_size);
 
 		memcpy(fw_packet, &subsys->data[offset], data_size);
@@ -840,7 +841,7 @@ static int goodix_flash_subsystem(struct fw_subsys_info *subsys)
 		r = goodix_flash_package(subsys->type, fw_packet,
 				subsys_base_addr + offset, data_size + 4);
 		if (r) {
-			ts_err("failed flash to %08x,size:%u bytes",
+			ts_err("failed flash to 0x%05X,size:%u bytes",
 			subsys_base_addr + offset, data_size);
 			break;
 		}
@@ -878,7 +879,7 @@ static int goodix_flash_firmware(struct fw_update_ctrl *fw_ctrl)
 	/* flash config data first if we have */
 	if (fw_ctrl->ic_config && fw_ctrl->ic_config->len) {
 		subsys_cfg.data = fw_ctrl->ic_config->data;
-		subsys_cfg.size = fw_ctrl->ic_config->len;
+		subsys_cfg.size = GOODIX_CFG_MAX_SIZE;
 		subsys_cfg.flash_addr = config_data_reg;
 		subsys_cfg.type = CONFIG_DATA_TYPE;
 		r = goodix_flash_subsystem(&subsys_cfg);
@@ -949,6 +950,10 @@ int goodix_fw_update_proc(struct fw_update_ctrl *fwu_ctrl)
 
 	if (!(fwu_ctrl->mode & UPDATE_MODE_FORCE)) {
 		ret = goodix_fw_version_compare(fwu_ctrl);
+		if (!ret) {
+			ts_info("no need to upgrade");
+			return 0;
+		}
 		ts_info("need to upgrade");
 	}
 
@@ -1078,20 +1083,20 @@ static ssize_t goodix_sysfs_result_show(
 
 	switch (fw_ctrl->status) {
 	case UPSTA_PREPARING:
-		scnprintf(str, ARRAY_SIZE(str), "preparing");
+		sprintf(str, "preparing");
 		break;
 	case UPSTA_UPDATING:
-		scnprintf(str, ARRAY_SIZE(str), "updating");
+		sprintf(str, "updating");
 		break;
 	case UPSTA_SUCCESS:
-		scnprintf(str, ARRAY_SIZE(str), "success");
+		sprintf(str, "success");
 		break;
 	case UPSTA_FAILED:
-		scnprintf(str, ARRAY_SIZE(str), "failed");
+		sprintf(str, "failed");
 		break;
 	case UPSTA_NOTWORK:
 	default:
-		scnprintf(str, ARRAY_SIZE(str), "notwork");
+		sprintf(str, "notwork");
 		break;
 	}
 

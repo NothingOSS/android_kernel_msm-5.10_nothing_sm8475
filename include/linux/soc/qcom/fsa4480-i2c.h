@@ -23,6 +23,8 @@ int fsa4480_reg_notifier(struct notifier_block *nb,
 			 struct device_node *node);
 int fsa4480_unreg_notifier(struct notifier_block *nb,
 			   struct device_node *node);
+bool is_dio4480(void);
+bool is_was4780(void);
 #else
 static inline int fsa4480_switch_event(struct device_node *node,
 				       enum fsa_function event)
@@ -40,6 +42,16 @@ static inline int fsa4480_unreg_notifier(struct notifier_block *nb,
 					 struct device_node *node)
 {
 	return 0;
+}
+
+static inline bool is_dio4480(void)
+{
+	reture false;
+}
+
+static inline bool is_was4780(void)
+{
+	return false;
 }
 #endif /* CONFIG_QCOM_FSA4480_I2C */
 

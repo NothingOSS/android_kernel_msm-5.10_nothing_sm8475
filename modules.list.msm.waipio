@@ -104,3 +104,5 @@ c1dcvs_vendor.ko
 c1dcvs_scmi.ko
 bcl_pmic5.ko
 nfc_i2c.ko
+nothing_writeback_kmsg.ko
+cpuprime_online_helper.ko

@@ -41,6 +41,7 @@
 #define SPM_FREQ_THRES 2000U
 #define L2MISS_RATIO_THRES 150U
 #define SPM_CPU_FREQ_IGN 200U
+#define CPU_PRIME_ISOLATE 7
 
 enum common_ev_idx {
 	INST_IDX,
@@ -1601,6 +1602,21 @@ memlat_unlock:
 }
 EXPORT_SYMBOL(cpucp_memlat_init);
 
+#if IS_ENABLED(CONFIG_QCOM_PRIME_CORE_ONLINE_HELPER)
+static bool memlat_defer_online(void)
+{
+	unsigned int cpu;
+	for_each_possible_cpu(cpu) {
+		if (!cpumask_test_cpu(cpu, cpu_online_mask)) {
+			pr_info("qcom-memlat:cpu %u is not online, Defer\n", cpu);
+			if (CPU_PRIME_ISOLATE == cpu)
+				return true;
+		}
+	}
+	return false;
+}
+#endif
+
 #define INST_EV		0x08
 #define CYC_EV		0x11
 static int memlat_dev_probe(struct platform_device *pdev)
@@ -1610,6 +1626,12 @@ static int memlat_dev_probe(struct platform_device *pdev)
 	struct memlat_dev_data *dev_data;
 	int i, cpu, ret;
 	u32 event_id;
+
+#if IS_ENABLED(CONFIG_QCOM_PRIME_CORE_ONLINE_HELPER)
+	/* memlat failed when CPU7 offline */
+	if (memlat_defer_online())
+		return -EPROBE_DEFER;
+#endif
 
 	dev_data = devm_kzalloc(dev, sizeof(*dev_data), GFP_KERNEL);
 	if (!dev_data)

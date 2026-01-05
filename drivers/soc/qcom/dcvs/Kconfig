@@ -12,6 +12,14 @@ config QCOM_PMU_LIB
 	  Qualcomm Technologies, Inc. (QTI) chipsets. This includes
 	  preserving them across CPU idle and hotplug events.
 
+config QCOM_PRIME_CORE_ONLINE_HELPER
+	tristate "Enable Qcom Prime Online Helper"
+	depends on ARCH_QCOM
+	default n
+	help
+	  This enables the Qcom Prime Online Helper to trigger defer probe
+	  pending device.
+
 config QCOM_DCVS_FP
 	tristate "Enable QCOM DCVS Fast Path Interface"
 	depends on ARCH_QCOM && QCOM_RPMH

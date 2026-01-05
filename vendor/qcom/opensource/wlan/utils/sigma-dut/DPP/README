@@ -1,0 +1,10 @@
+DPP bootstrapping services
+
+On the device that provides bootstrapping services, the following
+processes needs to be started:
+
+# stunnel to handle HTTPS(TLS-PSK)
+stunnel stunnel-server.conf
+
+# local-only HTTP server to handle the core DPP REST API
+./dpp-rest-server.py

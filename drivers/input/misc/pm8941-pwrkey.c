@@ -179,11 +179,13 @@ static irqreturn_t pm8941_pwrkey_irq(int irq, void *_data)
 	if (!pwrkey->last_status && !sts) {
 		input_report_key(pwrkey->input, pwrkey->code, 1);
 		input_sync(pwrkey->input);
+		dev_info(pwrkey->dev, "KEY_EVENT: keycode %d val 0x%02x\n", pwrkey->code, 1);
 	}
 	pwrkey->last_status = sts;
 
 	input_report_key(pwrkey->input, pwrkey->code, sts);
 	input_sync(pwrkey->input);
+	dev_info(pwrkey->dev, "KEY_EVENT: keycode %d val 0x%02x\n", pwrkey->code, sts);
 
 	return IRQ_HANDLED;
 }

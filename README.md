@@ -1,3 +1,12 @@
+ # NOTHING Phone(2) Release Note
+- NOS 4.0(Pong-B4.0-251119-1654)
+  - The opensource of of the initial release.
+  - Devicetree and modules path
+     - arch/arm64/boot/dts/vendor/
+     - vendor/qcom/proprietary/
+     - vendor/qcom/opensource/
+
+
 # How do I submit patches to Android Common Kernels
 
 1. BEST: Make all of your changes to upstream Linux. If appropriate, backport to the stable releases.

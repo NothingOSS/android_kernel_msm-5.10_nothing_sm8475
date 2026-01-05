@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "ukee-audio-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Ukee ATP";
+	compatible = "qcom,ukee", "qcom,ukee-atp", "qcom,atp";
+	qcom,msm-id = <591 0x10000>;
+	qcom,board-id = <0x10021 0>;
+};

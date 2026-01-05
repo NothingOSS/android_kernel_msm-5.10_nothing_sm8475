@@ -3276,7 +3276,9 @@ int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
 		cnss_pr_err("QMI_DMS_GET_MAC_ADDRESS_REQ_V01 failed, result: %d, err: %d\n",
 			    resp.resp.result, resp.resp.error);
-		ret = -resp.resp.result;
+
+		ret = resp.resp.error;
+
 		goto out;
 	}
 	if (!resp.mac_address_valid ||

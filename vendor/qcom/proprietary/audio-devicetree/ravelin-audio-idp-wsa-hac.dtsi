@@ -1,0 +1,158 @@
+#include "ravelin-audio-overlay.dtsi"
+
+&waipio_snd {
+	qcom,model = "ravelin-idp-wsahac-snd-card";
+	asoc-codec = <&stub_codec>, <&lpass_cdc>,
+			<&wsa883x_0221>, <&wsa883x_0222>,
+			<&wsa883x_0223>, <&wsa883x_0224>;
+	asoc-codec-names = "msm-stub-codec.1", "lpass-cdc",
+			"wsa-codec1", "wsa-codec2",
+			"wsa-codec3", "wsa-codec4";
+	qcom,wcd-disabled = <1>;
+	qcom,wsa-max-devs = <4>;
+	qcom,wsa-hac-en = <1>;
+	qcom,audio-routing =
+			"TX DMIC0", "Digital Mic0",
+			"TX DMIC1", "Digital Mic1",
+			"TX DMIC2", "Digital Mic2",
+			"TX DMIC3", "Digital Mic3",
+			"WSA SRC0_INP", "SRC0",
+			"WSA_TX DEC0_INP", "TX DEC0 MUX",
+			"WSA_TX DEC1_INP", "TX DEC1 MUX",
+			"RX_TX DEC0_INP", "TX DEC0 MUX",
+			"RX_TX DEC1_INP", "TX DEC1 MUX",
+			"RX_TX DEC2_INP", "TX DEC2 MUX",
+			"RX_TX DEC3_INP", "TX DEC3 MUX",
+			"SpkrLeft IN", "WSA_SPK1 OUT",
+			"SpkrRight IN", "WSA_SPK2 OUT",
+			"SpkrTop IN", "WSA_SPK2 OUT",
+			"SpkrBottom IN", "WSA_SPK1 OUT",
+			"VA DMIC0", "Digital Mic0",
+			"VA DMIC1", "Digital Mic1",
+			"VA DMIC2", "Digital Mic2",
+			"VA DMIC3", "Digital Mic3",
+			"VA DMIC0", "VA MIC BIAS",
+			"VA DMIC1", "VA MIC BIAS",
+			"VA DMIC2", "VA MIC BIAS",
+			"VA DMIC3", "VA MIC BIAS";
+};
+
+&soc {
+	wsa_spkr_en0: wsa_spkr_en4_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&spkr_0_sd_n_active>;
+		pinctrl-1 = <&spkr_0_sd_n_sleep>;
+		qcom,lpi-gpios;
+		#gpio-cells = <0>;
+	};
+
+	wsa_spkr_en3: wsa_spkr_en3_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&spkr_3_sd_n_active>;
+		pinctrl-1 = <&spkr_3_sd_n_sleep>;
+		qcom,lpi-gpios;
+		#gpio-cells = <0>;
+	};
+};
+
+&swr0 {
+	qcom,swr-num-dev = <4>;
+
+	wsa883x_0223: wsa883x@2170223 {
+		compatible = "qcom,wsa883x";
+		reg = <0x2 0x2170223>;
+		qcom,spkr-sd-n-node = <&wsa_spkr_en0>;
+		qcom,lpass-cdc-handle = <&lpass_cdc>;
+
+		cdc-vdd-1p8-supply = <&L21B>;
+		qcom,cdc-vdd-1p8-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-1p8-current = <20000>;
+		qcom,cdc-static-supplies = "cdc-vdd-1p8";
+		sound-name-prefix = "SpkrBottom";
+	};
+
+	wsa883x_0224: wsa883x@2170224 {
+		compatible = "qcom,wsa883x";
+		reg = <0x2 0x2170224>;
+		qcom,spkr-sd-n-node = <&wsa_spkr_en3>;
+		qcom,lpass-cdc-handle = <&lpass_cdc>;
+
+		cdc-vdd-1p8-supply = <&L21B>;
+		qcom,cdc-vdd-1p8-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-1p8-current = <20000>;
+		qcom,cdc-static-supplies = "cdc-vdd-1p8";
+		sound-name-prefix = "SpkrLeft";
+	};
+};
+
+/*
+ *+-----------+--------------------+----------------------+-------------------+
+ *|WSA BUS ID |    Reset Gpio -    |  Name - spkr name -  | SWR Left/Right    |
+ *|  - reg    |    pinctrl node    |  Impedence in ohms   |                   |
+ *|===========+====================+======================+===================|
+ *| 00 - 0221 |  99 - wsa_spkr_en1 | SpkrTop-Rcv - 32     | Right  (WSA_SPK2) |
+ *|-----------+--------------------+----------------------+-------------------+
+ *| 01 - 0222 | 100 - wsa_spkr_en2 | SpkrRight-Spkr#1 - 8 | Right  (WSA_SPK2) |
+ *|-----------+--------------------+----------------------+-------------------+
+ *| 10 - 0223 | 109 - wsa_spkr_en0 | SpkrBottom-HAC - 16  | Left   (WSA_SPK1) |
+ *|           |    (lpi gpio 0)    |                      |                   |
+ *|-----------+--------------------+----------------------+-------------------+
+ *| 11 - 0224 | 112 - wsa_spkr_en3 | SpkrLeft-Spkr#2 - 8  | Left   (WSA_SPK1) |
+ *|           |    (lpi gpio 1)    |                      |                   |
+ *+-----------+--------------------+----------------------+-------------------+
+ */
+&wsa883x_0221 {
+	sound-name-prefix = "SpkrTop";
+	qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+};
+
+&wsa883x_0222 {
+	sound-name-prefix = "SpkrRight";
+	qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+};
+
+&wsa883x_0223 {
+	sound-name-prefix = "SpkrBottom";
+	qcom,spkr-sd-n-node = <&wsa_spkr_en0>;
+	qcom,connect-to-left-port = <1>;
+};
+
+&wsa883x_0224 {
+	sound-name-prefix = "SpkrLeft";
+	qcom,spkr-sd-n-node = <&wsa_spkr_en3>;
+	qcom,connect-to-left-port = <1>;
+};
+
+&wcd938x_codec {
+	status = "disabled";
+};
+
+&wcd938x_tx_slave {
+	status = "disabled";
+};
+
+&wcd938x_rx_slave {
+	status = "disabled";
+};
+
+&wcd937x_codec {
+	status = "disabled";
+};
+
+&wcd937x_tx_slave {
+	status = "disabled";
+};
+
+&wcd937x_rx_slave {
+	status = "disabled";
+};
+
+&swr1 {
+	status = "disabled";
+};
+
+&swr2 {
+	status = "disabled";
+};

@@ -854,6 +854,9 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 		readl_relaxed(phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 	}
 
+//#ifdef NT_CHG
+	dev_err(uphy->dev, "QMP phy disconnect notification\n");
+//#endif
 	dev_dbg(uphy->dev, "QMP phy disconnect notification\n");
 	dev_dbg(uphy->dev, " cable_connected=%d\n", phy->cable_connected);
 	phy->cable_connected = false;

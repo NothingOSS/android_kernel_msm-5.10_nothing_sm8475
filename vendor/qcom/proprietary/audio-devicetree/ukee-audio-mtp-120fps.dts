@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+
+#include "ukee-audio-mtp.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. Ukee MTP`+ 120fps";
+	compatible = "qcom,ukee-mtp", "qcom,ukee", "qcom,mtp";
+	qcom,msm-id = <591 0x10000>;
+	qcom,board-id = <0x10008 3>;
+};

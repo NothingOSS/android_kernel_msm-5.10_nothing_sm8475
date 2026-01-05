@@ -2408,7 +2408,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	 * to 5-10sec worth of reprogramming the context bank, while
 	 * the system appears to be locked up to the user.
 	 */
-	pm_runtime_set_autosuspend_delay(smmu->dev, 20);
+	pm_runtime_set_autosuspend_delay(smmu->dev, 10);
 	pm_runtime_use_autosuspend(smmu->dev);
 
 out_power_off:

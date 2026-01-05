@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-waipio.h>
+#include <dt-bindings/clock/qcom,camcc-waipio.h>
+#include <dt-bindings/interconnect/qcom,waipio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+#include "ukee-camera-sensor-mtp.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. Ukee MTP";
+	compatible = "qcom,ukee-mtp", "qcom,ukee", "qcom,mtp";
+	qcom,msm-id = <591 0x10000>;
+	qcom,board-id = <8 0>, <0x10008 0>, <0x10008 2>, <0x10008 3>;
+};

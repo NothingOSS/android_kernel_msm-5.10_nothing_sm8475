@@ -1,0 +1,29 @@
+// MemBase,   MemSize,   MemLabel(32 Char.)
+// 0xA7605000, 0x00008000, "Log Buffer"
+&reserved_memory {
+	bootloader_log_mem: bootloader_log_region@A7605000 {
+		compatiable = "shared-dma-pool";
+		reg = <0 0xA7605000 0 0x00008000>;
+		no-map;
+	};
+};
+
+&soc {
+	bootloader_log {
+		compatible = "nothing,bootloader_log";
+		memory-region = <&bootloader_log_mem>;
+	};
+
+	nothing_secure_element {
+		compatible = "nothing,secure_element";
+		// 0x221c01b0 + 0x2000
+		oem_sec_boot_addr = <0x221c21b0>;
+    };
+};
+
+
+&ramoops_mem {
+	reg = <0x0 0x85200000 0x0 0x400000>;
+	console-size = <0x200000>;
+	pmsg-size = <0x200000>;
+};

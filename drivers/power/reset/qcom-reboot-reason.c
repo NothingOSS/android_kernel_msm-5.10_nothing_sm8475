@@ -32,6 +32,8 @@ static struct poweroff_reason reasons[] = {
 	{ "dm-verity device corrupted",	0x04 },
 	{ "dm-verity enforcing",	0x05 },
 	{ "keys clear",			0x06 },
+	{ "ddrtest",			0x07 },
+	{ "ddrtest_full",		0x08 },
 	{}
 };
 

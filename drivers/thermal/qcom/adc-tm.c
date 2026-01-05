@@ -13,6 +13,7 @@
 #include <linux/regmap.h>
 #include <linux/thermal.h>
 #include <linux/iio/iio.h>
+#include <trace/hooks/thermal.h>
 #include "adc-tm.h"
 
 static LIST_HEAD(adc_tm_device_list);
@@ -377,6 +378,12 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 	return 0;
 }
 
+static void tz_is_irq(void *unused, struct thermal_zone_device *tz, int *irq_wakeable)
+{
+	if(tz->polling_delay == 0)
+		*irq_wakeable = 1;
+}
+
 static int adc_tm_probe(struct platform_device *pdev)
 {
 	struct device_node *child, *revid_dev_node, *node = pdev->dev.of_node;
@@ -476,6 +483,8 @@ static int adc_tm_probe(struct platform_device *pdev)
 
 	list_add_tail(&adc_tm->list, &adc_tm_device_list);
 	adc_tm->device_list = &adc_tm_device_list;
+
+	register_trace_android_vh_thermal_pm_notify_suspend(tz_is_irq, NULL);
 	return 0;
 fail:
 	i = 0;

@@ -68,6 +68,12 @@ function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then
 		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_GKI.config vendor/${MSM_ARCH}-gki_defconfig
 		if [ "${VARIANT}" = gki ]; then
+
+			if [ "${NOTH_AGING_BUILD}" = true ]; then
+				apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/aging.config vendor/${MSM_ARCH}-gki_defconfig
+				GKI_GKI_DEFCONFIG_FRAGMENT=msm-kernel/build.config.gki_aging.aarch64
+			fi
+
 			return
 		fi
 		GKI_BUILD_CONFIG=common/build.config.gki-debug.aarch64
