@@ -6,6 +6,8 @@
      - vendor/qcom/proprietary/
      - vendor/qcom/opensource/
 
+- NOS 4.0(Pong-B4.0-251226-1110)
+  - No update
 
 # How do I submit patches to Android Common Kernels
 
