@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024,2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #ifndef _GEN7_REG_H
@@ -1169,6 +1169,7 @@
 #define GEN7_GMU_GENERAL_8			0x1f9cd
 #define GEN7_GMU_GENERAL_9			0x1f9ce
 #define GEN7_GMU_GENERAL_10			0x1f9cf
+#define GEN7_GMU_GENERAL_11			0x1f9d0
 
 /* FAL10 veto register */
 #define GEN7_GPU_GMU_CX_GMU_CX_FAL_INTF		0x1f8f0

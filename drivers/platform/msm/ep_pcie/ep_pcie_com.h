@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.*/
-/* Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.*/
+/* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. */
 
 #ifndef __EP_PCIE_COM_H
 #define __EP_PCIE_COM_H
@@ -80,11 +80,11 @@
 #define PCIE20_PARF_ATU_BASE_ADDR      0x634
 #define PCIE20_PARF_ATU_BASE_ADDR_HI   0x638
 #define PCIE20_PARF_SRIS_MODE		0x644
-#define PCIE20_PARF_BUS_DISCONNECT_CTRL	0x648
-#define PCIE20_PARF_BUS_DISCONNECT_STATUS	0x64c
 #define PCIE20_QTIMER_MHI_LOW_ADDR		0x6a8
 #define PCIE20_QTIMER_MHI_LOW_AXI_ADDR_MASK	GENMASK(11, 0)
 #define PCIE20_QTIMER_MHI_LOW_AHB_ADDR_MASK	GENMASK(23, 12)
+#define PCIE20_PARF_BUS_DISCONNECT_CTRL		0x680
+#define PCIE20_PARF_BUS_DISCONNECT_STATUS	0x684
 #define PCIE20_PARF_BDF_TO_SID_CFG		0x2c00
 
 #define PCIE20_PARF_DEVICE_TYPE        0x1000
