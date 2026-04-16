@@ -9484,14 +9484,22 @@ static int hdd_config_latency_level(struct hdd_adapter *adapter,
 	if (!hdd_is_wlm_latency_manager_supported(hdd_ctx))
 		return -ENOTSUPP;
 
+    wma_set_oem_latency_flags(0x0);
+
 	latency_level = nla_get_u16(attr);
 	switch (latency_level) {
 	case QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_NORMAL:
 	case QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_XR:
-	case QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_LOW:
-	case QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_ULTRALOW:
+    case QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_LOW:
+        break;
+    case QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_ULTRALOW:
+        // clear wifi scan bits.
+        wma_set_oem_latency_flags(0x3);
 		/* valid values */
 		break;
+    case QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_NT_ULTRALOW:
+        latency_level -= 1;
+        break;
 	default:
 		hdd_err("Invalid value %u", latency_level);
 		return -EINVAL;

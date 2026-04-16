@@ -656,6 +656,7 @@ QDF_STATUS
 wma_ds_peek_rx_packet_info
 	(cds_pkt_t *vosDataBuff, void **ppRxHeader, bool bSwap);
 
+void wma_set_oem_latency_flags(uint32_t flag);
 /**
  * wma_tx_abort() - abort tx
  * @vdev_id: vdev id

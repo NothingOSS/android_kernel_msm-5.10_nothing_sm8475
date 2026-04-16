@@ -5828,11 +5828,25 @@ int wma_fill_beacon_interval_reset_req(tp_wma_handle wma, uint8_t vdev_id,
 	return 0;
 }
 
+
+static uint32_t wam_oem_latency_flags = 0x0;
+
+void wma_set_oem_latency_flags(uint32_t flag)
+{
+    wam_oem_latency_flags = flag;
+}
+
+
 QDF_STATUS wma_set_wlm_latency_level(void *wma_ptr,
 			struct wlm_latency_level_param *latency_params)
 {
 	QDF_STATUS ret;
 	tp_wma_handle wma = (tp_wma_handle)wma_ptr;
+    if (wam_oem_latency_flags == 0x3) {
+        //clear bit0 and bit1
+        wma_debug("OEM: clear wifi scan bits");
+        latency_params->wlm_latency_flags &= ~0x3U;
+    }
 
 	wma_debug("set latency level %d, fw wlm_latency_flags 0x%x",
 		 latency_params->wlm_latency_level,
