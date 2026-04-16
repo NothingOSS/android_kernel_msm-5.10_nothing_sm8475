@@ -9,6 +9,11 @@
 - NOS 4.0(Pong-B4.0-251226-1110)
   - No update
 
+- NOS 4.0(Pong-B4.0-260226-0955)
+  - Merge keystone/android12-5.10-keystone-qcom-release.237+ (8e353455) into msm-5.10
+  - Merge GKI patches android12-5.10-2025-06_r3..2025-06_r5
+  - Enhance wifi stability
+
 # How do I submit patches to Android Common Kernels
 
 1. BEST: Make all of your changes to upstream Linux. If appropriate, backport to the stable releases.
