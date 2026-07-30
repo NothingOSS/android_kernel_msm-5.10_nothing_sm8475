@@ -17,6 +17,9 @@
 - NOS 4.1(Pong-B4.1-260414-1749)
   - No update
 
+- NOS 4.1(Pong-B4.1-260618-1026)
+  - No update
+
 # How do I submit patches to Android Common Kernels
 
 1. BEST: Make all of your changes to upstream Linux. If appropriate, backport to the stable releases.
