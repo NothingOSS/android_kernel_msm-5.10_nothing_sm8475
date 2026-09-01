@@ -2182,8 +2182,12 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 	}
 
 	/* All CRTCs are compatible with all encoders */
-	for (i = 0; i < priv->num_encoders; i++)
+	for (i = 0; i < priv->num_encoders; i++) {
 		priv->encoders[i]->possible_crtcs = (1 << priv->num_crtcs) - 1;
+		if (catalog->max_cwb > 0)
+			priv->encoders[i]->possible_clones =
+				sde_encoder_get_clones(priv->encoders[i]);
+	}
 
 	return 0;
 fail:
