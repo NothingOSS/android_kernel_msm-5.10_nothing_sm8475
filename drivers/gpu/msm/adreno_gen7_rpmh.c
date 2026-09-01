@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/types.h>
@@ -119,7 +119,7 @@ static int setup_volt_dependency_tbl(u32 *votes,
 
 /* Generate a set of bandwidth votes for the list of BCMs */
 static void tcs_cmd_data(struct bcm *bcms, int count, u32 ab, u32 ib,
-		u32 *data)
+		u32 *data, u32 perfmode_vote, bool set_perfmode)
 {
 	int i;
 
@@ -135,15 +135,16 @@ static void tcs_cmd_data(struct bcm *bcms, int count, u32 ab, u32 ib,
 			if (!ab && !ib)
 				data[i] = BCM_TCS_CMD(commit, false, 0x0, 0x0);
 			else
-				data[i] = BCM_TCS_CMD(commit, true, 0x0, 0x8);
+				data[i] = BCM_TCS_CMD(commit, true, 0x0,
+							perfmode_vote);
 			continue;
 		}
 
 		/* Multiple the bandwidth by the width of the connection */
 		avg = ((u64) ab) * bcms[i].width;
 
-		/* And then divide by the total width across channels */
-		do_div(avg, bcms[i].buswidth * bcms[i].channels);
+		/* And then divide by the total width */
+		do_div(avg, bcms[i].buswidth);
 
 		peak = ((u64) ib) * bcms[i].width;
 		do_div(peak, bcms[i].buswidth);
@@ -193,9 +194,11 @@ static void free_rpmh_bw_votes(struct rpmh_bw_votes *votes)
 
 /* Build the votes table from the specified bandwidth levels */
 static struct rpmh_bw_votes *build_rpmh_bw_votes(struct bcm *bcms,
-		int bcm_count, u32 *levels, int levels_count)
+		int bcm_count, u32 *levels, int levels_count, bool gmu_ab,
+		u32 perfmode_vote, u32 perfmode_lvl)
 {
 	struct rpmh_bw_votes *votes;
+	bool set_perfmode;
 	int i;
 
 	votes = kzalloc(sizeof(*votes), GFP_KERNEL);
@@ -243,7 +246,9 @@ static struct rpmh_bw_votes *build_rpmh_bw_votes(struct bcm *bcms,
 			return ERR_PTR(-ENOMEM);
 		}
 
-		tcs_cmd_data(bcms, bcm_count, 0, levels[i], votes->cmds[i]);
+		set_perfmode = (i >= perfmode_lvl) ? true : false;
+		tcs_cmd_data(bcms, bcm_count, gmu_ab ? levels[i] : 0x0, levels[i], votes->cmds[i],
+								perfmode_vote, set_perfmode);
 	}
 
 	return votes;
@@ -455,18 +460,28 @@ static void build_bw_table_cmd(struct hfi_bwtable_cmd *cmd,
 			cmd->cnoc_cmd_data[i][j] = (u32) cnoc->cmds[i][j];
 }
 
+#define GEN7_6_0_DDR_NOM_IDX 8
+
 static int build_bw_table(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct rpmh_bw_votes *ddr, *cnoc = NULL;
+	u32 perfmode_vote = gen7_core->acv_perfmode_vote;
+	u32 perfmode_lvl = adreno_is_gen7_6_0(adreno_dev) ? GEN7_6_0_DDR_NOM_IDX : 1;
 	u32 *cnoc_table;
 	u32 count;
 	int ret;
 
+	/* If perfmode vote is not defined, use default value as 0x2 */
+	if (!perfmode_vote)
+		perfmode_vote = BIT(1);
+
 	ddr = build_rpmh_bw_votes(gen7_ddr_bcms, ARRAY_SIZE(gen7_ddr_bcms),
-		pwr->ddr_table, pwr->ddr_table_count);
+		pwr->ddr_table, pwr->ddr_table_count, adreno_dev->gmu_ab,
+		perfmode_vote, perfmode_lvl);
 	if (IS_ERR(ddr))
 		return PTR_ERR(ddr);
 
@@ -475,7 +490,7 @@ static int build_bw_table(struct adreno_device *adreno_dev)
 
 	if (count > 0)
 		cnoc = build_rpmh_bw_votes(gen7_cnoc_bcms,
-			ARRAY_SIZE(gen7_cnoc_bcms), cnoc_table, count);
+			ARRAY_SIZE(gen7_cnoc_bcms), cnoc_table, count, adreno_dev->gmu_ab, 0, 0);
 
 	kfree(cnoc_table);
 

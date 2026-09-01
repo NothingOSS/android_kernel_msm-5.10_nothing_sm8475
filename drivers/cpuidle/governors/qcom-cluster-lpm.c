@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/cpu.h>
@@ -288,6 +288,7 @@ static int cluster_power_cb(struct notifier_block *nb,
 	struct lpm_cpu *cpu_gov;
 	int cpu;
 	u32 *suspend_param = state->data;
+	unsigned long flags;
 
 	switch (action) {
 	case GENPD_NOTIFY_ON:
@@ -313,8 +314,15 @@ static int cluster_power_cb(struct notifier_block *nb,
 		for_each_cpu(cpu, cluster_gov->genpd->cpus) {
 			if (cpu_online(cpu)) {
 				cpu_gov = per_cpu_ptr(&lpm_cpu_data, cpu);
-				if (cpu_gov->ipi_pending)
-					return NOTIFY_BAD;
+				if (!cpu_gov->enable)
+					continue;
+				if (spin_trylock_irqsave(&cpu_gov->lock, flags)) {
+					if (cpu_gov->ipi_pending) {
+						spin_unlock_irqrestore(&cpu_gov->lock, flags);
+						return NOTIFY_BAD;
+					}
+					spin_unlock_irqrestore(&cpu_gov->lock, flags);
+				}
 			}
 		}
 

@@ -233,8 +233,10 @@ int qcom_scm_handle_wait(struct device *dev, int scm_ret,
 #define QCOM_SCM_GET_MEM_LAT_STATS_ID		0x15
 #define QCOM_SCM_SVC_MEM_LAT			0x06
 
-#define QCOM_SCM_GET_LLCC_MISSRATE_STATS_ID	0x14
 #define QCOM_SCM_SVC_MISSRATE			0x06
+#define QCOM_SCM_GET_LLCC_MISSRATE_STATS_ID	0x14
+#define QCOM_SCM_SVC_LLCC_OCCUPANCY		0x06
+#define QCOM_SCM_GET_LLCC_OCCUPANCY_STATS_ID	0x13
 
 extern void __qcom_scm_init(void);
 

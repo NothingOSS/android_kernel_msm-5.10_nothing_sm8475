@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
+#include <dt-bindings/interconnect/qcom,icc.h>
 #include <linux/component.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
@@ -3327,7 +3328,7 @@ static int adreno_interconnect_bus_set(struct adreno_device *adreno_dev,
 	icc_set_bw(pwr->icc_path, MBps_to_icc(ab),
 		kBps_to_icc(pwr->ddr_table[level]));
 
-	trace_kgsl_buslevel(device, pwr->active_pwrlevel, level);
+	trace_kgsl_buslevel(device, pwr->active_pwrlevel, level, ab);
 
 	return 0;
 }
@@ -3335,7 +3336,15 @@ static int adreno_interconnect_bus_set(struct adreno_device *adreno_dev,
 static int adreno_gpu_bus_set(struct kgsl_device *device, int level, u32 ab)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	if (!adreno_dev->gmu_ab) {
+		if (level == pwr->pwrlevels[0].bus_max)
+			icc_set_tag(pwr->icc_path, QCOM_ICC_TAG_ALWAYS | QCOM_ICC_TAG_PERF_MODE);
+		else
+			icc_set_tag(pwr->icc_path, QCOM_ICC_TAG_ALWAYS);
+	}
 
 	if (ops->gpu_bus_set)
 		return ops->gpu_bus_set(adreno_dev, level, ab);
@@ -3521,7 +3530,7 @@ static int adreno_secure_pt_hibernate(struct adreno_device *adreno_dev)
 			memdesc = &entry->memdesc;
 			if (!kgsl_memdesc_is_secured(memdesc) ||
 				(memdesc->flags & KGSL_MEMFLAGS_USERMEM_ION) ||
-				(memdesc->priv & KGSL_MEMDESC_HYPASSIGNED_HLOS))
+				(TEST_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv)))
 				continue;
 
 			read_unlock(&kgsl_driver.proclist_lock);
@@ -3529,7 +3538,7 @@ static int adreno_secure_pt_hibernate(struct adreno_device *adreno_dev)
 			if (kgsl_unlock_sgt(memdesc->sgt))
 				dev_err(device->dev, "kgsl_unlock_sgt failed\n");
 
-			memdesc->priv |= KGSL_MEMDESC_HYPASSIGNED_HLOS;
+			SET_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv);
 
 			read_lock(&kgsl_driver.proclist_lock);
 		}
@@ -3539,13 +3548,13 @@ static int adreno_secure_pt_hibernate(struct adreno_device *adreno_dev)
 	list_for_each_entry(md, &device->globals, node) {
 		memdesc = &md->memdesc;
 		if (kgsl_memdesc_is_secured(memdesc) &&
-			!(memdesc->priv & KGSL_MEMDESC_HYPASSIGNED_HLOS)) {
+			!(TEST_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv))) {
 			ret = kgsl_unlock_sgt(memdesc->sgt);
 			if (ret) {
 				dev_err(device->dev, "kgsl_unlock_sgt failed ret %d\n", ret);
 				goto fail;
 			}
-			memdesc->priv |= KGSL_MEMDESC_HYPASSIGNED_HLOS;
+			SET_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv);
 		}
 	}
 
@@ -3555,9 +3564,9 @@ fail:
 	list_for_each_entry(md, &device->globals, node) {
 		memdesc = &md->memdesc;
 		if (kgsl_memdesc_is_secured(memdesc) &&
-			(memdesc->priv & KGSL_MEMDESC_HYPASSIGNED_HLOS)) {
+			(TEST_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv))) {
 			kgsl_lock_sgt(memdesc->sgt, memdesc->size);
-			memdesc->priv &= ~KGSL_MEMDESC_HYPASSIGNED_HLOS;
+			CLEAR_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv);
 		}
 	}
 
@@ -3576,13 +3585,13 @@ static int adreno_secure_pt_restore(struct adreno_device *adreno_dev)
 	list_for_each_entry(md, &device->globals, node) {
 		memdesc = &md->memdesc;
 		if (kgsl_memdesc_is_secured(memdesc) &&
-			(memdesc->priv & KGSL_MEMDESC_HYPASSIGNED_HLOS)) {
+			(TEST_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv))) {
 			ret = kgsl_lock_sgt(memdesc->sgt, memdesc->size);
 			if (ret) {
 				dev_err(device->dev, "kgsl_lock_sgt failed ret %d\n", ret);
 				return ret;
 			}
-			memdesc->priv &= ~KGSL_MEMDESC_HYPASSIGNED_HLOS;
+			CLEAR_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv);
 		}
 	}
 
@@ -3592,7 +3601,7 @@ static int adreno_secure_pt_restore(struct adreno_device *adreno_dev)
 			memdesc = &entry->memdesc;
 			if (!kgsl_memdesc_is_secured(memdesc) ||
 				(memdesc->flags & KGSL_MEMFLAGS_USERMEM_ION) ||
-				!(memdesc->priv & KGSL_MEMDESC_HYPASSIGNED_HLOS))
+				!(TEST_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv)))
 				continue;
 
 			read_unlock(&kgsl_driver.proclist_lock);
@@ -3602,7 +3611,7 @@ static int adreno_secure_pt_restore(struct adreno_device *adreno_dev)
 				dev_err(device->dev, "kgsl_lock_sgt failed ret %d\n", ret);
 				return ret;
 			}
-			memdesc->priv &= ~KGSL_MEMDESC_HYPASSIGNED_HLOS;
+			CLEAR_FLAG(KGSL_MEMDESC_HYPASSIGNED_HLOS, &memdesc->priv);
 
 			read_lock(&kgsl_driver.proclist_lock);
 		}

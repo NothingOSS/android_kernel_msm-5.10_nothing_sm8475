@@ -696,6 +696,7 @@ static int msm_cvp_session_process_hfi_fence(struct msm_cvp_inst *inst,
 	if (idx < 0 || pkt->size > MAX_HFI_FENCE_OFFSET) {
 		dprintk(CVP_ERR, "%s incorrect packet %d %#x\n", __func__,
 				pkt->size, pkt->packet_type);
+		rc = -EINVAL;
 		goto exit;
 	}
 
@@ -709,6 +710,7 @@ static int msm_cvp_session_process_hfi_fence(struct msm_cvp_inst *inst,
 
 	if (!is_buf_param_valid(buf_num, offset)) {
 		dprintk(CVP_ERR, "Incorrect buf num and offset in cmd\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 	rc = msm_cvp_map_frame(inst, (struct cvp_kmd_hfi_packet *)pkt, offset,
@@ -717,8 +719,11 @@ static int msm_cvp_session_process_hfi_fence(struct msm_cvp_inst *inst,
 		goto exit;
 
 	rc = cvp_alloc_fence_data(&f, pkt->size);
-	if (rc)
+
+	if (rc) {
+		msm_cvp_unmap_frame(inst, pkt->client_data.kdata);
 		goto exit;
+	}
 
 	f->type = cvp_hfi_defs[idx].type;
 	f->mode = OP_NORMAL;
@@ -737,7 +742,14 @@ static int msm_cvp_session_process_hfi_fence(struct msm_cvp_inst *inst,
 		f->num_fences = kfc->num_fences;
 		f->output_index = kfc->output_index;
 	}
-
+	if (f->num_fences > (MAX_HFI_FENCE_SIZE / 2)) {
+		dprintk(CVP_ERR, "%s: Max number of fences exceeded! Max number supported: %d, num_fences: %d",
+			__func__, (MAX_HFI_FENCE_SIZE / 2), f->num_fences);
+		cvp_free_fence_data(f);
+		msm_cvp_unmap_frame(inst, pkt->client_data.kdata);
+		rc = -EINVAL;
+		goto exit;
+	}
 
 	dprintk(CVP_SYNX, "%s: frameID %llu ktid %llu\n",
 			__func__, f->frame_id, pkt->client_data.kdata);

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #ifndef _ADRENO_GEN7_H_
@@ -120,6 +120,8 @@ struct adreno_gen7_core {
 	const u32 *qos_value;
 	/** @rt_bus_hint: IB level hint for real time clients i.e. RB-0 */
 	const u32 rt_bus_hint;
+	/** @acv_perfmode_vote: ACV vote for GPU perfmode */
+	u32 acv_perfmode_vote;
 };
 
 /**

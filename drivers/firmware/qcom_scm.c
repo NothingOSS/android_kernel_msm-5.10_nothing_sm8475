@@ -831,8 +831,36 @@ int qcom_scm_get_llcc_missrate(phys_addr_t in_buf,
 }
 EXPORT_SYMBOL_GPL(qcom_scm_get_llcc_missrate);
 
+int __qcom_scm_get_llcc_occupancy(struct device *dev, phys_addr_t in_buf,
+		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_LLCC_OCCUPANCY,
+		.cmd = QCOM_SCM_GET_LLCC_OCCUPANCY_STATS_ID,
+		.owner = ARM_SMCCC_OWNER_SIP,
+		.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_RW, QCOM_SCM_VAL),
+	};
+
+	desc.args[0] = in_buf;
+	desc.args[1] = in_buf_size;
+	desc.args[2] = out_buf;
+	desc.args[3] = out_buf_size;
+	ret = qcom_scm_call(dev, &desc, NULL);
+
+	return ret;
+}
+
+int qcom_scm_get_llcc_occupancy(phys_addr_t in_buf,
+		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size)
+{
+	return __qcom_scm_get_llcc_occupancy(__scm ? __scm->dev : NULL, in_buf,
+			in_buf_size, out_buf, out_buf_size);
+}
+EXPORT_SYMBOL_GPL(qcom_scm_get_llcc_occupancy);
+
 int __qcom_scm_memory_lat_profiler(struct device *dev, phys_addr_t in_buf,
-	size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size)
+		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size)
 {
 	int ret;
 	struct qcom_scm_desc desc = {
@@ -841,16 +869,18 @@ int __qcom_scm_memory_lat_profiler(struct device *dev, phys_addr_t in_buf,
 		.owner = ARM_SMCCC_OWNER_SIP,
 		.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_RW, QCOM_SCM_VAL),
 	};
+
 	desc.args[0] = in_buf;
 	desc.args[1] = in_buf_size;
 	desc.args[2] = out_buf;
 	desc.args[3] = out_buf_size;
 	ret = qcom_scm_call(dev, &desc, NULL);
+
 	return ret;
 }
 
 int qcom_scm_memory_lat_profiler(phys_addr_t in_buf,
-	size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size)
+		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size)
 {
 	return __qcom_scm_memory_lat_profiler(__scm ? __scm->dev : NULL, in_buf,
 			in_buf_size, out_buf, out_buf_size);

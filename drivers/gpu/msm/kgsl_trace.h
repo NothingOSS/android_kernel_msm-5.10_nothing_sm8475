@@ -341,28 +341,31 @@ TRACE_EVENT(kgsl_gpu_frequency,
 
 TRACE_EVENT(kgsl_buslevel,
 
-	TP_PROTO(struct kgsl_device *device, unsigned int pwrlevel,
-		 unsigned int bus),
+	TP_PROTO(struct kgsl_device *device, u32 pwrlevel,
+		 u32 bus, u32 avg_bw),
 
-	TP_ARGS(device, pwrlevel, bus),
+	TP_ARGS(device, pwrlevel, bus, avg_bw),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
-		__field(unsigned int, pwrlevel)
-		__field(unsigned int, bus)
+		__field(u32, pwrlevel)
+		__field(u32, bus)
+		__field(u32, avg_bw)
 	),
 
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
 		__entry->pwrlevel = pwrlevel;
 		__entry->bus = bus;
+		__entry->avg_bw = avg_bw;
 	),
 
 	TP_printk(
-		"d_name=%s pwrlevel=%d bus=%d",
+		"d_name=%s pwrlevel=%u bus=%u avg_bw=%u",
 		__get_str(device_name),
 		__entry->pwrlevel,
-		__entry->bus
+		__entry->bus,
+		__entry->avg_bw
 	)
 );
 

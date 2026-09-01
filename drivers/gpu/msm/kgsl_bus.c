@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <dt-bindings/interconnect/qcom,icc.h>
@@ -92,11 +92,6 @@ int kgsl_bus_update(struct kgsl_device *device,
 	buslevel = pwr->rt_bus_hint_active ?
 		max(pwr->cur_dcvs_buslevel, pwr->rt_bus_hint) :
 		pwr->cur_dcvs_buslevel;
-
-	if (buslevel == pwr->pwrlevels[0].bus_max)
-		icc_set_tag(pwr->icc_path, QCOM_ICC_TAG_ALWAYS | QCOM_ICC_TAG_PERF_MODE);
-	else
-		icc_set_tag(pwr->icc_path, QCOM_ICC_TAG_ALWAYS);
 
 	return device->ftbl->gpu_bus_set(device, buslevel, ab);
 }

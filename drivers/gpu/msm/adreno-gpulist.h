@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #define ANY_ID (~0)
@@ -2180,13 +2180,15 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_6_0 = {
 		.features = ADRENO_APRIV | ADRENO_IOCOHERENT |
 				ADRENO_CONTENT_PROTECTION | ADRENO_L3_VOTE |
 				ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_BCL |
-				ADRENO_ACD | ADRENO_LPAC | ADRENO_DMS,
+				ADRENO_ACD | ADRENO_LPAC | ADRENO_DMS |
+				ADRENO_GMU_AB,
 		.gpudev = &adreno_gen7_hwsched_gpudev.base,
 		.perfcounters = &adreno_gen7_hwsched_perfcounters,
 		.uche_gmem_alignment = SZ_16M,
 		.gmem_size = 3 * SZ_1M,
 		.bus_width = 32,
 		.snapshot_size = SZ_4M,
+		.num_ddr_channels = 4,
 	},
 	.gmu_fw_version = GMU_VERSION(4, 1, 9),
 	.sqefw_name = "a740v3_sqe.fw",
@@ -2204,6 +2206,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_6_0 = {
 	.gen7_snapshot_block_list = &gen7_6_0_snapshot_block_list,
 	.qos_value = gen7_6_0_gbif_client_qos_values,
 	.ctxt_record_size = (4192 * SZ_1K),
+	.acv_perfmode_vote = BIT(1),
 };
 
 static const struct adreno_gpu_core *adreno_gpulist[] = {

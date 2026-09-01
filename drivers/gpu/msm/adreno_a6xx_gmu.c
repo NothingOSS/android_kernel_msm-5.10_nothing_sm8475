@@ -687,7 +687,7 @@ static int find_vma_block(struct a6xx_gmu_device *gmu, u32 addr, u32 size)
 {
 	int i;
 
-	for (i = 0; i < GMU_MEM_TYPE_MAX; i++) {
+	for (i = 0; i < gmu->num_vmas; i++) {
 		struct gmu_vma_entry *vma = &gmu->vma[i];
 
 		if ((addr >= vma->start) &&
@@ -2507,8 +2507,6 @@ static int a6xx_gmu_bus_set(struct adreno_device *adreno_dev, int buslevel,
 			return ret;
 
 		pwr->cur_buslevel = buslevel;
-
-		trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
 	}
 
 	if (ab != pwr->cur_ab) {
@@ -2516,6 +2514,7 @@ static int a6xx_gmu_bus_set(struct adreno_device *adreno_dev, int buslevel,
 		pwr->cur_ab = ab;
 	}
 
+	trace_kgsl_buslevel(device, pwr->active_pwrlevel, pwr->cur_buslevel, pwr->cur_ab);
 	return ret;
 }
 
@@ -2531,7 +2530,7 @@ static void a6xx_free_gmu_globals(struct a6xx_gmu_device *gmu)
 
 		iommu_unmap(gmu->domain, md->gmuaddr, md->size);
 
-		if (md->priv & KGSL_MEMDESC_SYSMEM)
+		if (TEST_FLAG(KGSL_MEMDESC_SYSMEM, &md->priv))
 			kgsl_sharedmem_free(md);
 
 		memset(md, 0, sizeof(*md));
@@ -2866,10 +2865,13 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	if (ret)
 		goto error;
 
-	if (adreno_is_a650_family(adreno_dev))
+	if (adreno_is_a650_family(adreno_dev)) {
 		gmu->vma = a6xx_gmu_vma;
-	else
+		gmu->num_vmas = ARRAY_SIZE(a6xx_gmu_vma);
+	} else {
 		gmu->vma = a6xx_gmu_vma_legacy;
+		gmu->num_vmas = ARRAY_SIZE(a6xx_gmu_vma_legacy);
+	}
 
 	/* Map and reserve GMU CSRs registers */
 	ret = a6xx_gmu_reg_probe(adreno_dev);
