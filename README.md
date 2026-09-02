@@ -20,6 +20,13 @@
 - NOS 4.1(Pong-B4.1-260618-1026)
   - No update
 
+- NOS 4.1(Pong-B4.1-260818-1726)
+  - Merge keystone/android12-5.10-keystone-qcom-release.252 (fe40cb9) into msm-5.10
+  - Enhance display driver stability
+  - Merge GKI patches: android12-5.10-2026-04_r1..android12-5.10-2026-04_r2
+  - Merge GKI patches: android12-5.10-2026-04_r2..android12-5.10-2026-04_r3
+
+
 # How do I submit patches to Android Common Kernels
 
 1. BEST: Make all of your changes to upstream Linux. If appropriate, backport to the stable releases.
